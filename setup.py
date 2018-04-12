@@ -34,7 +34,6 @@ setuptools.setup(
     install_requires=[
         'torch',
         'pykalman',
-        'matplotlib',
-        'seaborn'
+        'matplotlib'
     ]
 )
