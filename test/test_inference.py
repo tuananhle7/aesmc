@@ -62,7 +62,7 @@ class TestSampleAncestralIndex(unittest.TestCase):
 
     def test_sampler(self):
         weight = [0.2, 0.3, 0.5]
-        num_trials = 1000
+        num_trials = 10000
         ancestral_indices = inference.sample_ancestral_index(
             torch.log(torch.Tensor(weight)).unsqueeze(0).expand(
                 num_trials, len(weight)
@@ -384,7 +384,7 @@ class TestInfer(unittest.TestCase):
             ) / self.kalman_smoothed_state_variances[:, 0, 0]
         )
         # We expect SMC to perform well
-        self.assertLess(mean_sqmse, 1)
+        self.assertLess(mean_sqmse, 2)
         self.assertLess(variance_avg_relative_error, 0.3)
 
 

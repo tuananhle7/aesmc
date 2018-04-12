@@ -1,5 +1,6 @@
 from . import inference
 from . import math
+from . import state
 
 import numpy as np
 import torch
@@ -171,20 +172,21 @@ class AutoEncoder(nn.Module):
             observations,
             list(map(
                 lambda original_latent: original_latent.clone(),
-                inference_result.original_latents
+                inference_result['original_latents']
             )),
             list(map(
                 lambda ancestral_index: ancestral_index.clone(),
-                inference_result.ancestral_indices
+                inference_result['ancestral_indices']
             )),
             list(map(
                 lambda log_weight: log_weight.clone(),
-                inference_result.log_weights
+                inference_result['log_weights']
             ))
         )
 
-        return inference_result.log_marginal_likelihood + \
-            log_proposal_ * inference_result.log_marginal_likelihood.detach()
+        return inference_result['log_marginal_likelihood'] + \
+            log_proposal_ * \
+            inference_result['log_marginal_likelihood'].detach()
 
     def forward_ignore(self, observations, num_particles):
         """Evaluate a computation graph that returns the log marginal likelihood
@@ -223,10 +225,8 @@ class AutoEncoder(nn.Module):
             transition=self.transition,
             emission=self.emission,
             proposal=self.proposal,
-            num_particles=self.num_particles,
-            reparameterized=isinstance(
-                self.proposal, aesmc.model.ProposalReparameterized
-            ),
+            num_particles=num_particles,
+            reparameterized=True,
             return_log_marginal_likelihood=True,
             return_latents=False,
             return_original_latents=False,
@@ -235,12 +235,13 @@ class AutoEncoder(nn.Module):
             return_ancestral_indices=True
         )
         log_ancestral_indices_proposal_ = log_ancestral_indices_proposal(
-            inference_result.ancestral_indices, inference_result.log_weights
+            inference_result['ancestral_indices'],
+            inference_result['log_weights']
         )
 
         return log_ancestral_indices_proposal_ * \
-            inference_result.log_marginal_likelihood.detach() + \
-            inference_result.log_marginal_likelihood
+            inference_result['log_marginal_likelihood'].detach() + \
+            inference_result['log_marginal_likelihood']
 
     def forward(
         self, observations, resample, num_particles, gradients='ignore'

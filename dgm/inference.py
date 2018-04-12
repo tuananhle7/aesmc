@@ -64,7 +64,7 @@ def sample_ancestral_index(log_weight):
     pos = (uniforms + np.arange(0, num_particles)) / num_particles
 
     normalized_weights = math.exponentiate_and_normalize(
-        log_weight.cpu().numpy(),
+        log_weight.detach().cpu().numpy(),
         dim=1
     )
 
