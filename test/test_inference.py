@@ -173,7 +173,7 @@ class MyProposalDistribution(model.ProposalDistribution):
 
 class TestInfer(unittest.TestCase):
     # Test inference against a Kalman filter. Outputs plots to
-    # test/test_inference/
+    # test/test_inference_plots/
 
     @classmethod
     def setUpClass(self):
