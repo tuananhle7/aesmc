@@ -1,4 +1,5 @@
 import dgm.state as state
+import numpy as np
 import torch
 import unittest
 
@@ -97,34 +98,106 @@ class TestSample(unittest.TestCase):
 
 class TestLogProb(unittest.TestCase):
     def test_dimensions(self):
-        batch_size, num_particles = 4, 5
+        batch_size, num_particles = 1, 2
         distribution = torch.distributions.Normal(
-            loc=torch.zeros(2, 3), scale=torch.ones(2, 3)
+            loc=torch.zeros(3, 4), scale=torch.ones(3, 4)
         )
-        value = torch.rand(batch_size, num_particles, 2, 3)
+        value = torch.rand(batch_size, num_particles, 3, 4)
         lp = state.log_prob(distribution, value)
-        self.assertEqual(
-            lp.size(),
-            torch.Size([batch_size, num_particles])
-        )
+        self.assertEqual(lp.size(), torch.Size([batch_size, num_particles]))
 
+        batch_size, num_particles = 1, 2
+        distribution = torch.distributions.Normal(
+            loc=torch.zeros(batch_size, num_particles, 3, 4),
+            scale=torch.ones(batch_size, num_particles, 3, 4)
+        )
+        value = torch.rand(batch_size, num_particles, 3, 4)
+        lp = state.log_prob(distribution, value)
+        self.assertEqual(lp.size(), torch.Size([batch_size, num_particles]))
+
+        batch_size, num_particles = 1, 2
         distribution = {
             'a': torch.distributions.Normal(
-                loc=torch.zeros(2, 3), scale=torch.ones(2, 3)
+                loc=torch.zeros(3, 4), scale=torch.ones(3, 4)
             ),
             'b': torch.distributions.Normal(
-                loc=torch.zeros(4, 5, 6), scale=torch.ones(4, 5, 6)
+                loc=torch.zeros(5, 6, 7), scale=torch.ones(5, 6, 7)
             )
         }
-        batch_size, num_particles = 7, 8
         value = {
-            'a': torch.rand(batch_size, num_particles, 2, 3),
-            'b': torch.rand(batch_size, num_particles, 4, 5, 6)
+            'a': torch.rand(batch_size, num_particles, 3, 4),
+            'b': torch.rand(batch_size, num_particles, 5, 6, 7)
         }
         lp = state.log_prob(distribution, value)
-        self.assertEqual(
-            lp.size(),
-            torch.Size([batch_size, num_particles])
+        self.assertEqual(lp.size(), torch.Size([batch_size, num_particles]))
+
+
+class TestLogProbNonReparam(unittest.TestCase):
+    def test_dimensions(self):
+        batch_size, num_particles = 1, 2
+        distribution = torch.distributions.Normal(
+            loc=torch.zeros(3, 4), scale=torch.ones(3, 4)
+        )
+        value = torch.rand(batch_size, num_particles, 3, 4)
+        lp = state.log_prob_non_reparam(distribution, value)
+        self.assertEqual(lp.size(), torch.Size([batch_size, num_particles]))
+
+        batch_size, num_particles = 1, 2
+        distribution = torch.distributions.Normal(
+            loc=torch.zeros(batch_size, num_particles, 3, 4),
+            scale=torch.ones(batch_size, num_particles, 3, 4)
+        )
+        value = torch.rand(batch_size, num_particles, 3, 4)
+        lp = state.log_prob(distribution, value)
+        self.assertEqual(lp.size(), torch.Size([batch_size, num_particles]))
+
+        categorical = torch.distributions.Categorical(
+            probs=torch.Tensor([0.2, 0.3, 0.5])
+        )
+        categorical_value = torch.Tensor([
+            [1, 0, 2],
+            [0, 1, 2]
+        ])
+        batch_size, num_particles = categorical_value.size()
+        normal = torch.distributions.Normal(
+            loc=torch.zeros(batch_size, num_particles, 3, 4),
+            scale=torch.ones(batch_size, num_particles, 3, 4)
+        )
+        normal_value = torch.rand(batch_size, num_particles, 3, 4)
+        distribution = {'categorical': categorical, 'normal': normal}
+        value = {'categorical': categorical_value, 'normal': normal_value}
+        lp = state.log_prob_non_reparam(distribution, value)
+        self.assertEqual(lp.size(), torch.Size([batch_size, num_particles]))
+
+    def test_value(self):
+        batch_size, num_particles = 1, 2
+        distribution = torch.distributions.Normal(
+            loc=torch.zeros(3, 4), scale=torch.ones(3, 4)
+        )
+        value = torch.ones(batch_size, num_particles, 3, 4)
+        lp = state.log_prob_non_reparam(distribution, value)
+        np.testing.assert_equal(
+            lp.numpy(), np.zeros([batch_size, num_particles])
+        )
+
+        categorical = torch.distributions.Categorical(
+            probs=torch.Tensor([0.2, 0.3, 0.5])
+        )
+        categorical_value = torch.Tensor([
+            [1, 0, 2],
+            [0, 1, 2]
+        ])
+        batch_size, num_particles = categorical_value.size()
+        normal = torch.distributions.Normal(
+            loc=torch.zeros(batch_size, num_particles, 3, 4),
+            scale=torch.ones(batch_size, num_particles, 3, 4)
+        )
+        normal_value = torch.rand(batch_size, num_particles, 3, 4)
+        distribution = {'categorical': categorical, 'normal': normal}
+        value = {'categorical': categorical_value, 'normal': normal_value}
+        lp = state.log_prob_non_reparam(distribution, value)
+        np.testing.assert_equal(
+            lp.numpy(), state.log_prob(categorical, categorical_value).numpy()
         )
 
 
