@@ -221,9 +221,8 @@ def infer(
 
     if inference_algorithm == InferenceAlgorithm.SMC:
         if return_log_marginal_likelihood:
-            temp = math.logsumexp(
-                torch.stack(log_weights, dim=0), dim=2
-            ) - np.log(num_particles)
+            temp = math.logsumexp(torch.stack(log_weights, dim=0), dim=2) - \
+                np.log(num_particles)
             log_marginal_likelihood = torch.sum(temp, dim=0)
         else:
             log_marginal_likelihood = None
@@ -250,13 +249,9 @@ def infer(
             ancestral_indices = None
     else:
         if return_log_marginal_likelihood:
-            log_weight = torch.sum(
-                torch.stack(log_weights, dim=0),
-                dim=0
-            )
-            log_marginal_likelihood = math.logsumexp(
-                log_weight, dim=1
-            ) - np.log(num_particles)
+            log_weight = torch.sum(torch.stack(log_weights, dim=0), dim=0)
+            log_marginal_likelihood = math.logsumexp(log_weight, dim=1) - \
+                np.log(num_particles)
         else:
             log_marginal_likelihood = None
 
@@ -273,10 +268,7 @@ def infer(
         if return_log_weight:
             if not return_log_marginal_likelihood:
                 # already calculated above
-                log_weight = torch.sum(
-                    torch.stack(log_weights, dim=0),
-                    dim=0
-                )
+                log_weight = torch.sum(torch.stack(log_weights, dim=0), dim=0)
         else:
             log_weight = None
 
@@ -298,7 +290,7 @@ def infer(
     }
 
 
-# NOTE: This functions is currently used to calculate REINFORCE estimator of
+# NOTE: This function is currently used to calculate REINFORCE estimator of
 # resampling gradients.
 def log_ancestral_indices_proposal(ancestral_indices, log_weights):
     """Returns a log of the proposal density (on counting measure) of the
