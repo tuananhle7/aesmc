@@ -125,13 +125,13 @@ class AutoEncoder(nn.Module):
                     return_log_weights=True,
                     return_ancestral_indices=True
                 )
-                log_ancestral_indices_proposal_ = \
-                    inference.log_ancestral_indices_proposal(
+                ancestral_indices_log_prob_ = \
+                    inference.ancestral_indices_log_prob(
                         inference_result['ancestral_indices'],
                         inference_result['log_weights']
                     )
 
-                return log_ancestral_indices_proposal_ * \
+                return ancestral_indices_log_prob_ * \
                     inference_result['log_marginal_likelihood'].detach() + \
                     inference_result['log_marginal_likelihood']
             else:

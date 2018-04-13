@@ -405,12 +405,12 @@ class TestInfer(unittest.TestCase):
         self.assertLess(variance_avg_relative_error, 0.3)
 
 
-class TestLogAncestralIndicesProposal(unittest.TestCase):
+class TestAncestralIndicesLogProb(unittest.TestCase):
     def test_dimensions(self):
         batch_size = 3
         num_particles = 4
         self.assertEqual(
-            inference.log_ancestral_indices_proposal(
+            inference.ancestral_indices_log_prob(
                 [torch.ones(batch_size, num_particles).long()],
                 [torch.rand(batch_size, num_particles),
                  torch.rand(batch_size, num_particles)]
@@ -418,7 +418,7 @@ class TestLogAncestralIndicesProposal(unittest.TestCase):
             torch.Size([batch_size])
         )
         self.assertEqual(
-            inference.log_ancestral_indices_proposal(
+            inference.ancestral_indices_log_prob(
                 [], [torch.rand(batch_size, num_particles)]
             ).size(),
             torch.Size([batch_size])
@@ -428,7 +428,7 @@ class TestLogAncestralIndicesProposal(unittest.TestCase):
         batch_size = 1
         num_particles = 1
         self.assertIsInstance(
-            inference.log_ancestral_indices_proposal(
+            inference.ancestral_indices_log_prob(
                 [torch.zeros(batch_size, num_particles).long()],
                 [torch.rand(batch_size, num_particles),
                  torch.rand(batch_size, num_particles)]
@@ -436,7 +436,7 @@ class TestLogAncestralIndicesProposal(unittest.TestCase):
             torch.Tensor
         )
         self.assertIsInstance(
-            inference.log_ancestral_indices_proposal(
+            inference.ancestral_indices_log_prob(
                 [], [torch.rand(batch_size, num_particles)]
             ),
             torch.Tensor
@@ -446,7 +446,7 @@ class TestLogAncestralIndicesProposal(unittest.TestCase):
         weights = [[0.2, 0.8], [0.6, 0.4], [0.1, 0.9]]
         ancestral_indices = [[1, 0], [0, 0]]
         self.assertAlmostEqual(
-            inference.log_ancestral_indices_proposal(
+            inference.ancestral_indices_log_prob(
                 list(map(
                     lambda ancestral_index:
                         torch.Tensor(ancestral_index).long().unsqueeze(0),
@@ -483,7 +483,7 @@ class MyProposalNetwork(model.ProposalNetwork):
             )
 
 
-class TestLogProposal(unittest.TestCase):
+class TestLatentsLogProb(unittest.TestCase):
     def test_dimensions(self):
         for num_timesteps, batch_size, num_particles in [
             (2, 3, 4), (1, 1, 1), (2, 1, 1)
@@ -499,16 +499,26 @@ class TestLogProposal(unittest.TestCase):
                 torch.rand(num_timesteps - 1, batch_size, num_particles).long()
             )
 
-            self.assertEqual(
-                inference.log_proposal(
-                    my_proposal_network,
-                    None,
-                    original_latents,
-                    ancestral_indices,
-                    log_weights
-                ).size(),
-                torch.Size([batch_size])
-            )
+            for non_reparam in [True, False]:
+                self.assertEqual(
+                    inference.latents_log_prob(
+                        my_proposal_network,
+                        None,
+                        original_latents,
+                        ancestral_indices,
+                        non_reparam=non_reparam
+                    ).size(),
+                    torch.Size([batch_size])
+                )
+                self.assertEqual(
+                    inference.latents_log_prob(
+                        my_proposal_network,
+                        None,
+                        original_latents,
+                        non_reparam=non_reparam
+                    ).size(),
+                    torch.Size([batch_size])
+                )
 
     def test_value(self):
         batch_size, num_particles, num_timesteps = (1, 2, 3)
@@ -524,14 +534,12 @@ class TestLogProposal(unittest.TestCase):
         )
 
         self.assertAlmostEqual(
-            inference.log_proposal(
+            inference.latents_log_prob(
                 my_proposal_network,
                 None,
                 original_latents,
-                ancestral_indices,
-                log_weights
+                ancestral_indices
             ).item(),
-            np.log(0.2) + np.log(0.8) + np.log(0.6) + np.log(0.6) +
             scipy.stats.norm.logpdf(1, 0, 1) +
             scipy.stats.norm.logpdf(2, 0, 1) +
             scipy.stats.norm.logpdf(3, 2, 1) +
@@ -540,6 +548,42 @@ class TestLogProposal(unittest.TestCase):
             scipy.stats.norm.logpdf(6, 3, 1),
             places=5
         )
+        self.assertAlmostEqual(
+            inference.latents_log_prob(
+                my_proposal_network,
+                None,
+                original_latents
+            ).item(),
+            scipy.stats.norm.logpdf(1, 0, 1) +
+            scipy.stats.norm.logpdf(2, 0, 1) +
+            scipy.stats.norm.logpdf(3, 1, 1) +
+            scipy.stats.norm.logpdf(4, 2, 1) +
+            scipy.stats.norm.logpdf(5, 3, 1) +
+            scipy.stats.norm.logpdf(6, 4, 1),
+            places=5
+        )
+        self.assertAlmostEqual(
+            inference.latents_log_prob(
+                my_proposal_network,
+                None,
+                original_latents,
+                ancestral_indices,
+                non_reparam=True
+            ).item(),
+            0,
+            places=5
+        )
+        self.assertAlmostEqual(
+            inference.latents_log_prob(
+                my_proposal_network,
+                None,
+                original_latents,
+                non_reparam=True
+            ).item(),
+            0,
+            places=5
+        )
+        # TODO: test for actual non-reparameterizable latents
 
 
 if __name__ == '__main__':

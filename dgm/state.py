@@ -63,7 +63,7 @@ def sample(distribution, batch_size, num_particles):
         )
 
 
-def log_prob(distribution, value):
+def log_prob(distribution, value, non_reparam=False):
     """Log probability of value under distribution.
 
     input:
@@ -72,47 +72,23 @@ def log_prob(distribution, value):
             [dim1, ..., dimN] or `dict` thereof.
         value: `torch.Tensor` [batch_size, num_particles, dim1, ..., dimN] or
             `dict` thereof
+        non_reparam: bool; if True, only returns log probability of the
+            non-reparameterizable part of the distribution (default: False).
 
     output: `torch.Tensor` [batch_size, num_particles] or `dict` thereof
     """
     if isinstance(distribution, dict):
         return torch.sum(torch.cat([
-            log_prob(v, value[k]).unsqueeze(0)
+            log_prob(v, value[k], non_reparam).unsqueeze(0)
             for k, v in distribution.items()
         ], dim=0), dim=0)
     elif isinstance(distribution, torch.distributions.Distribution):
-        return torch.sum(distribution.log_prob(value).view(
-            value.size(0), value.size(1), -1
-        ), dim=2)
-    else:
-        raise AttributeError(
-            'distribution must be a dict or a torch.distributions.Distribution.\
-            Got: {}'.format(distribution)
-        )
-
-
-def log_prob_non_reparam(distribution, value):
-    """Log probability of the non-reparameterizable part of the distribution.
-
-    input:
-        distribution: `torch.distributions.Distribution` of batch_shape either
-            [batch_size, num_particles, dim1, ..., dimN] or
-            [dim1, ..., dimN] or `dict` thereof.
-        value: `torch.Tensor` [batch_size, num_particles, dim1, ..., dimN] or
-            `dict` thereof
-
-    output: `torch.Tensor` [batch_size, num_particles] or `dict` thereof
-    """
-
-    if isinstance(distribution, dict):
-        return torch.sum(torch.cat([
-            log_prob_non_reparam(v, value[k]).unsqueeze(0)
-            for k, v in distribution.items()
-        ], dim=0), dim=0)
-    elif isinstance(distribution, torch.distributions.Distribution):
-        if distribution.has_rsample:
+        if non_reparam and distribution.has_rsample:
             return value.new(*value.size()[:2]).zero_()
         else:
+            # non_reparam is True and distribution.has_rsample is False
+            # or
+            # non_reparam is False
             return torch.sum(distribution.log_prob(value).view(
                 value.size(0), value.size(1), -1
             ), dim=2)

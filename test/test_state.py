@@ -139,7 +139,7 @@ class TestLogProbNonReparam(unittest.TestCase):
             loc=torch.zeros(3, 4), scale=torch.ones(3, 4)
         )
         value = torch.rand(batch_size, num_particles, 3, 4)
-        lp = state.log_prob_non_reparam(distribution, value)
+        lp = state.log_prob(distribution, value, non_reparam=True)
         self.assertEqual(lp.size(), torch.Size([batch_size, num_particles]))
 
         batch_size, num_particles = 1, 2
@@ -166,7 +166,7 @@ class TestLogProbNonReparam(unittest.TestCase):
         normal_value = torch.rand(batch_size, num_particles, 3, 4)
         distribution = {'categorical': categorical, 'normal': normal}
         value = {'categorical': categorical_value, 'normal': normal_value}
-        lp = state.log_prob_non_reparam(distribution, value)
+        lp = state.log_prob(distribution, value, non_reparam=True)
         self.assertEqual(lp.size(), torch.Size([batch_size, num_particles]))
 
     def test_value(self):
@@ -175,7 +175,7 @@ class TestLogProbNonReparam(unittest.TestCase):
             loc=torch.zeros(3, 4), scale=torch.ones(3, 4)
         )
         value = torch.ones(batch_size, num_particles, 3, 4)
-        lp = state.log_prob_non_reparam(distribution, value)
+        lp = state.log_prob(distribution, value, non_reparam=True)
         np.testing.assert_equal(
             lp.numpy(), np.zeros([batch_size, num_particles])
         )
@@ -195,7 +195,7 @@ class TestLogProbNonReparam(unittest.TestCase):
         normal_value = torch.rand(batch_size, num_particles, 3, 4)
         distribution = {'categorical': categorical, 'normal': normal}
         value = {'categorical': categorical_value, 'normal': normal_value}
-        lp = state.log_prob_non_reparam(distribution, value)
+        lp = state.log_prob(distribution, value, non_reparam=True)
         np.testing.assert_equal(
             lp.numpy(), state.log_prob(categorical, categorical_value).numpy()
         )
@@ -217,24 +217,18 @@ class TestResample(unittest.TestCase):
         )
 
     def test_small(self):
-        ancestral_index = torch.LongTensor(
-            [
-                [1, 2, 0],
-                [0, 0, 1]
-            ]
-        )
-        value = torch.Tensor(
-            [
-                [1, 2, 3],
-                [4, 5, 6]
-            ]
-        )
-        resampled_value = torch.Tensor(
-            [
-                [2, 3, 1],
-                [4, 4, 5]
-            ]
-        )
+        ancestral_index = torch.LongTensor([
+            [1, 2, 0],
+            [0, 0, 1]
+        ])
+        value = torch.Tensor([
+            [1, 2, 3],
+            [4, 5, 6]
+        ])
+        resampled_value = torch.Tensor([
+            [2, 3, 1],
+            [4, 4, 5]
+        ])
 
         self.assertTrue(torch.equal(
             state.resample(value, ancestral_index),
