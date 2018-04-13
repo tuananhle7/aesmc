@@ -4,6 +4,8 @@ import dgm.state as state
 import dgm.statistics as stats
 import matplotlib.pyplot as plt
 import numpy as np
+import scipy.stats
+import torch.nn as nn
 import pykalman
 import torch
 import unittest
@@ -229,14 +231,13 @@ class TestInfer(unittest.TestCase):
     def test_importance_sampling(self):
         # Inference using importance sampling
         inference_result = inference.infer(
-            algorithm='is',
+            inference_algorithm=inference.InferenceAlgorithm.IS,
             observations=self.observations_tensor,
             initial=self.my_initial_distribution,
             transition=self.my_transition_distribution,
             emission=self.my_emission_distribution,
             proposal=self.my_proposal_distribution,
-            num_particles=self.num_particles,
-            reparameterized=False
+            num_particles=self.num_particles
         )
 
         is_smoothed_state_means = []
@@ -314,19 +315,18 @@ class TestInfer(unittest.TestCase):
         )
         # We expect importance sampling to perform very badly
         self.assertLess(mean_sqmse, 20)
-        self.assertLessEqual(variance_avg_relative_error, 1)
+        self.assertLessEqual(variance_avg_relative_error, 2)
 
     def test_smc(self):
         # Inference using SMC
         inference_result = inference.infer(
-            algorithm='smc',
+            inference_algorithm=inference.InferenceAlgorithm.SMC,
             observations=self.observations_tensor,
             initial=self.my_initial_distribution,
             transition=self.my_transition_distribution,
             emission=self.my_emission_distribution,
             proposal=self.my_proposal_distribution,
-            num_particles=self.num_particles,
-            reparameterized=False
+            num_particles=self.num_particles
         )
 
         smc_smoothed_state_means = []
@@ -403,6 +403,143 @@ class TestInfer(unittest.TestCase):
         # We expect SMC to perform well
         self.assertLess(mean_sqmse, 2)
         self.assertLess(variance_avg_relative_error, 0.3)
+
+
+class TestLogAncestralIndicesProposal(unittest.TestCase):
+    def test_dimensions(self):
+        batch_size = 3
+        num_particles = 4
+        self.assertEqual(
+            inference.log_ancestral_indices_proposal(
+                [torch.ones(batch_size, num_particles).long()],
+                [torch.rand(batch_size, num_particles),
+                 torch.rand(batch_size, num_particles)]
+            ).size(),
+            torch.Size([batch_size])
+        )
+        self.assertEqual(
+            inference.log_ancestral_indices_proposal(
+                [], [torch.rand(batch_size, num_particles)]
+            ).size(),
+            torch.Size([batch_size])
+        )
+
+    def test_type(self):
+        batch_size = 1
+        num_particles = 1
+        self.assertIsInstance(
+            inference.log_ancestral_indices_proposal(
+                [torch.zeros(batch_size, num_particles).long()],
+                [torch.rand(batch_size, num_particles),
+                 torch.rand(batch_size, num_particles)]
+            ),
+            torch.Tensor
+        )
+        self.assertIsInstance(
+            inference.log_ancestral_indices_proposal(
+                [], [torch.rand(batch_size, num_particles)]
+            ),
+            torch.Tensor
+        )
+
+    def test_value(self):
+        weights = [[0.2, 0.8], [0.6, 0.4], [0.1, 0.9]]
+        ancestral_indices = [[1, 0], [0, 0]]
+        self.assertAlmostEqual(
+            inference.log_ancestral_indices_proposal(
+                list(map(
+                    lambda ancestral_index:
+                        torch.Tensor(ancestral_index).long().unsqueeze(0),
+                    ancestral_indices
+                )),
+                list(map(
+                    lambda weight:
+                        torch.log(
+                            torch.Tensor(weight) * np.random.rand()
+                        ).unsqueeze(0),
+                    weights
+                ))
+            ).item(),
+            np.log(0.8 * 0.2 * 0.6 * 0.6),
+            places=6  # Fails with 7 places
+        )
+
+
+class MyProposalNetwork(model.ProposalNetwork):
+    def __init__(self, proposal_multiplier):
+        super(MyProposalNetwork, self).__init__()
+        self.multiplier = nn.Parameter(torch.Tensor([proposal_multiplier]))
+        self.std = 1
+
+    def proposal(
+        self, previous_latent=None, time=None, observations=None
+    ):
+        if time == 0:
+            return torch.distributions.Normal(loc=0, scale=1)
+        else:
+            return torch.distributions.Normal(
+                loc=self.multiplier * previous_latent,
+                scale=self.std
+            )
+
+
+class TestLogProposal(unittest.TestCase):
+    def test_dimensions(self):
+        for num_timesteps, batch_size, num_particles in [
+            (2, 3, 4), (1, 1, 1), (2, 1, 1)
+        ]:
+            my_proposal_network = MyProposalNetwork(1)
+            original_latents = list(
+                torch.rand(num_timesteps, batch_size, num_particles)
+            )
+            log_weights = list(
+                torch.rand(num_timesteps, batch_size, num_particles)
+            )
+            ancestral_indices = list(
+                torch.rand(num_timesteps - 1, batch_size, num_particles).long()
+            )
+
+            self.assertEqual(
+                inference.log_proposal(
+                    my_proposal_network,
+                    None,
+                    original_latents,
+                    ancestral_indices,
+                    log_weights
+                ).size(),
+                torch.Size([batch_size])
+            )
+
+    def test_value(self):
+        batch_size, num_particles, num_timesteps = (1, 2, 3)
+        my_proposal_network = MyProposalNetwork(1)
+        log_weights = list(torch.log(
+            torch.Tensor([[0.2, 0.8], [0.6, 0.4], [0.1, 0.9]]).unsqueeze(1)
+        ))
+        ancestral_indices = list(
+            torch.Tensor([[1, 0], [0, 0]]).unsqueeze(1).long()
+        )
+        original_latents = list(
+            torch.Tensor([[1, 2], [3, 4], [5, 6]]).unsqueeze(1)
+        )
+
+        self.assertAlmostEqual(
+            inference.log_proposal(
+                my_proposal_network,
+                None,
+                original_latents,
+                ancestral_indices,
+                log_weights
+            ).item(),
+            np.log(0.2) + np.log(0.8) + np.log(0.6) + np.log(0.6) +
+            scipy.stats.norm.logpdf(1, 0, 1) +
+            scipy.stats.norm.logpdf(2, 0, 1) +
+            scipy.stats.norm.logpdf(3, 2, 1) +
+            scipy.stats.norm.logpdf(4, 1, 1) +
+            scipy.stats.norm.logpdf(5, 3, 1) +
+            scipy.stats.norm.logpdf(6, 3, 1),
+            places=5
+        )
 
 
 if __name__ == '__main__':

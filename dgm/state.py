@@ -14,12 +14,10 @@ def is_expanded(distribution, batch_size=None, num_particles=None):
         return distribution.batch_shape[:2] == (batch_size, num_particles)
 
 
-def sample(
-    distribution, batch_size, num_particles, reparameterized
-):
+def sample(distribution, batch_size, num_particles):
     if isinstance(distribution, dict):
         return {
-            k: sample(v, batch_size, num_particles, reparameterized)
+            k: sample(v, batch_size, num_particles)
             for k, v in distribution.items()
         }
     elif isinstance(distribution, torch.distributions.Distribution):
@@ -28,14 +26,10 @@ def sample(
         else:
             sample_shape = (batch_size, num_particles,)
 
-        if reparameterized:
-            return distribution.rsample(
-                sample_shape=sample_shape
-            )
+        if distribution.has_rsample:
+            return distribution.rsample(sample_shape=sample_shape)
         else:
-            return distribution.sample(
-                sample_shape=sample_shape
-            )
+            return distribution.sample(sample_shape=sample_shape)
     else:
         raise AttributeError(
             'distribution must be a dict or a torch.distributions.Distribution.\

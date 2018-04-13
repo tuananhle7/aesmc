@@ -32,9 +32,7 @@ class TestSample(unittest.TestCase):
         distribution = torch.distributions.Normal(
             loc=torch.zeros(2), scale=torch.ones(2)
         )
-        smp = state.sample(
-            distribution, batch_size, num_particles, reparameterized=False
-        )
+        smp = state.sample(distribution, batch_size, num_particles)
         self.assertEqual(
             smp.size(),
             torch.Size([batch_size, num_particles, 2])
@@ -46,9 +44,7 @@ class TestSample(unittest.TestCase):
             loc=torch.zeros(batch_size, num_particles),
             scale=torch.ones(batch_size, num_particles)
         )
-        smp = state.sample(
-            distribution, batch_size, num_particles, reparameterized=False
-        )
+        smp = state.sample(distribution, batch_size, num_particles)
         self.assertEqual(
             smp.size(),
             torch.Size([batch_size, num_particles])
@@ -60,9 +56,7 @@ class TestSample(unittest.TestCase):
             loc=torch.zeros(batch_size, num_particles),
             scale=torch.ones(batch_size, num_particles)
         ), False)
-        smp = state.sample(
-            distribution, batch_size, num_particles, reparameterized=False
-        )
+        smp = state.sample(distribution, batch_size, num_particles)
         self.assertEqual(
             smp.size(),
             torch.Size([batch_size, num_particles, batch_size, num_particles])
@@ -74,9 +68,7 @@ class TestSample(unittest.TestCase):
             loc=torch.zeros(batch_size, num_particles),
             scale=torch.ones(batch_size, num_particles)
         ), True)
-        smp = state.sample(
-            distribution, batch_size, num_particles, reparameterized=False
-        )
+        smp = state.sample(distribution, batch_size, num_particles)
         self.assertEqual(
             smp.size(),
             torch.Size([batch_size, num_particles])
@@ -92,9 +84,7 @@ class TestSample(unittest.TestCase):
                 loc=torch.zeros(3), scale=torch.ones(3)
             )
         }
-        smp = state.sample(
-            distribution, batch_size, num_particles, reparameterized=False
-        )
+        smp = state.sample(distribution, batch_size, num_particles)
         self.assertEqual(
             smp['a'].size(),
             torch.Size([batch_size, num_particles, 2])
