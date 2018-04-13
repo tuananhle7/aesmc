@@ -103,3 +103,12 @@ venv.bak/
 
 # mypy
 .mypy_cache/
+
+# swap files
+*.swp
+*.swo
+
+# temp files
+*.swp
+*.swo
+*.DS_Store

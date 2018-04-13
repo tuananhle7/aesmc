@@ -1,6 +1,7 @@
 from . import inference
 from . import math
 from . import state
+from . import wake_sleep
 
 import enum
 import numpy as np
@@ -12,9 +13,9 @@ class AutoencoderAlgorithm(enum.Enum):
     VAE = 0  # variational autoencoder (IWAE with 1 particle)
     IWAE = 1  # importance weighted autoencoder
     AESMC = 2  # auto-encoding sequential monte carlo
-    WAKE_THETA = 3  # wake update of theta in reweighted wake-sleep
-    WAKE_PHI = 4  # wake update of phi in reweighted wake-sleep
-    SLEEP_PHI = 5  # sleep update of phi in reweighted wake-sleep
+    WAKE_THETA = 3 
+    SLEEP_PHI = 4 
+    WAKE_PHI = 5  
 
 
 class DiscreteGradientEstimator(enum.Enum):
@@ -40,6 +41,7 @@ class AutoEncoder(nn.Module):
         observations,
         num_particles=2,
         autoencoder_algorithm=AutoencoderAlgorithm.IWAE,
+        wake_sleep_mode=wake_sleep.WakeSleepAlgorithm.IGNORE,
         discrete_gradient_estimator=DiscreteGradientEstimator.REINFORCE,
         resampling_gradient_estimator=ResamplingGradientEstimator.IGNORE
     ):
@@ -52,6 +54,8 @@ class AutoEncoder(nn.Module):
             num_particles: int
             autoencoder_algorithm: AutoencoderAlgorithm value (default:
                 AutoencoderAlgorithm.IWAE)
+            wake_sleep_algorightm: Wake Sleep estimator mode - specify if algorithm type is wake sleep
+                (default: WakeSleepAlgorithm.IGNORE)
             discrete_gradient_estimator: DiscreteGradientEstimator value
                 (default: DiscreteGradientEstimator.REINFORCE)
             resampling_gradient_estimator: ResamplingGradientEstimator value
@@ -80,12 +84,15 @@ class AutoEncoder(nn.Module):
             autoencoder_algorithm = AutoencoderAlgorithm.IWAE
             num_particles = 1
 
-        if autoencoder_algorithm == AutoencoderAlgorithm.WAKE_THETA:
-            autoencoder_algorithm = AutoencoderAlgorithm.IWAE
+        #  if autoencoder_algorithm == AutoencoderAlgorithm.WAKE_THETA:
+        #      autoencoder_algorithm = AutoencoderAlgorithm.IWAE
 
         # TODO: implement
         # - DiscreteGradientEstimator.REINFORCE and VIMCO
         # - AutoencoderAlgorithm.WAKE_PHI, SLEEP_PHI
+
+
+        #  if autoencoder_algorithm == AutoencoderAlgorithm.AESMC:
         if autoencoder_algorithm == AutoencoderAlgorithm.AESMC:
             if (
                 resampling_gradient_estimator ==
@@ -152,6 +159,68 @@ class AutoEncoder(nn.Module):
                 return_log_weight=False,
                 return_log_weights=False,
                 return_ancestral_indices=False
+            )['log_marginal_likelihood']
+
+        elif autoencoder_algorithm == AutoencoderAlgorithm.WAKE_THETA:
+            #  iwae_elbo =  inference.infer(
+            #      inference_algorithm=inference.InferenceAlgorithm.IS,
+            #      observations=observations,
+            #      initial=self.initial,
+            #      transition=self.transition,
+            #      emission=self.emission,
+            #      proposal=self.proposal,
+            #      num_particles=num_particles,
+            #      return_log_marginal_likelihood=True,
+            #      return_latents=False,
+            #      return_original_latents=False,
+            #      return_log_weight=False,
+            #      return_log_weights=False,
+            #      return_ancestral_indices=False
+            #  )['log_marginal_likelihood']
+            #
+            #  print("IWAE ELBO IS, ", iwae_elbo)
+            ws_elbo = wake_sleep.infer(
+                wake_sleep_mode=wake_sleep_mode,
+                observations=observations,
+                initial=self.initial,
+                transition=self.transition,
+                emission=self.emission,
+                proposal=self.proposal,
+                num_particles=num_particles,
+                return_log_marginal_likelihood=True,
+                return_latents=False,
+                return_log_weight=False,
+                return_log_weights=False
+            )['log_marginal_likelihood']
+
+            return ws_elbo
+        elif autoencoder_algorithm == AutoencoderAlgorithm.SLEEP_PHI:
+            return wake_sleep.infer(
+                wake_sleep_mode=wake_sleep_mode,
+                observations=observations,
+                initial=self.initial,
+                transition=self.transition,
+                emission=self.emission,
+                proposal=self.proposal,
+                num_particles=num_particles,
+                return_log_marginal_likelihood=True,
+                return_latents=False,
+                return_log_weight=False,
+                return_log_weights=False
+            )['log_marginal_likelihood']
+        elif autoencoder_algorithm == AutoencoderAlgorithm.WAKE_PHI:
+            return wake_sleep.infer(
+                wake_sleep_mode=wake_sleep_mode,
+                observations=observations,
+                initial=self.initial,
+                transition=self.transition,
+                emission=self.emission,
+                proposal=self.proposal,
+                num_particles=num_particles,
+                return_log_marginal_likelihood=True,
+                return_latents=False,
+                return_log_weight=False,
+                return_log_weights=False
             )['log_marginal_likelihood']
         else:
             raise NotImplementedError('autoencoder_algorithm {} not \
