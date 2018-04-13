@@ -83,6 +83,23 @@ class TestSampleAncestralIndex(unittest.TestCase):
         )
 
 
+class TestExpandObservation(unittest.TestCase):
+    def test_dimensions(self):
+        batch_size = 2
+        num_particles = 3
+        observation = torch.rand(batch_size)
+        self.assertEqual(
+            inference.expand_observation(observation, num_particles).size(),
+            torch.Size([batch_size, num_particles])
+        )
+
+        observation = torch.rand(batch_size, 4, 5)
+        self.assertEqual(
+            inference.expand_observation(observation, num_particles).size(),
+            torch.Size([batch_size, num_particles, 4, 5])
+        )
+
+
 class MyInitialDistribution(model.InitialDistribution):
     def __init__(self, initial_mean, initial_variance):
         self.initial_mean = initial_mean

@@ -87,7 +87,6 @@ def sample_ancestral_index(log_weight):
         return torch.from_numpy(indices).long()
 
 
-# TODO: test this function
 def expand_observation(observation, num_particles):
     """input:
         observation: `torch.Tensor` [batch_size, dim1, ..., dimN]
