@@ -94,21 +94,6 @@ def sample_ancestral_index(log_weight):
         return torch.from_numpy(indices).long()
 
 
-def expand_observation(observation, num_particles):
-    """input:
-        observation: `torch.Tensor` [batch_size, dim1, ..., dimN]
-        num_particles: int
-
-    output: `torch.Tensor` [batch_size, num_particles, dim1, ..., dimN]
-    """
-    batch_size = observation.size(0)
-    other_sizes = list(observation.size()[1:])
-
-    return observation.unsqueeze(1).expand(
-        *([batch_size, num_particles] + other_sizes)
-    )
-
-
 def infer(
     inference_algorithm,
     observations,
@@ -179,8 +164,9 @@ def infer(
     initial_log_prob = state.log_prob(initial.initial(), latent)
     emission_log_prob = state.log_prob(
         emission.emission(latent=latent, time=0),
-        expand_observation(observations[0], num_particles)
+        state.expand_observation(observations[0], num_particles)
     )
+    # import pdb; pdb.set_trace()
 
     if return_original_latents or return_latents:
         original_latents.append(latent)
@@ -209,7 +195,7 @@ def infer(
         )
         emission_log_prob = state.log_prob(
             emission.emission(latent=latent, time=time),
-            expand_observation(observations[time], num_particles)
+            state.expand_observation(observations[time], num_particles)
         )
 
         if return_original_latents or return_latents:

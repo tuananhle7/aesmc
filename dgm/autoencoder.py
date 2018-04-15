@@ -30,6 +30,14 @@ class ResamplingGradientEstimator(enum.Enum):
 
 class AutoEncoder(nn.Module):
     def __init__(self, initial, transition, emission, proposal):
+        """Initialize AutoEncoder object.
+
+        input:
+            initial: dgm.model.InitialDistribution object
+            transition: dgm.model.TransitionDistribution object
+            emission: dgm.model.EmissionDistribution object
+            proposal: dgm.model.ProposalDistribution object
+        """
         super(AutoEncoder, self).__init__()
         self.initial = initial
         self.transition = transition

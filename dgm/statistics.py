@@ -102,6 +102,7 @@ def ess(log_weight):
     return torch.exp(log_ess(log_weight))
 
 
+# NOTE: old and untested
 def reconstruct_observations(
     algorithm,
     observations,
@@ -141,7 +142,6 @@ def reconstruct_observations(
         emission=emission,
         proposal=proposal,
         num_particles=num_particles,
-        reparameterized=False,
         return_log_marginal_likelihood=False,
         return_latents=True,
         return_original_latents=False,
@@ -154,13 +154,13 @@ def reconstruct_observations(
         state.sample(
             emission.emission(latent=latent, time=time),
             batch_size,
-            num_particles,
-            reparameterized=False
+            num_particles
         )
         for latent in inference_result['latents']
     ], inference_result['log_weight']
 
 
+# NOTE: old and untested
 def predict_observations(
     algorithm,
     observations,
@@ -203,7 +203,6 @@ def predict_observations(
         emission=emission,
         proposal=proposal,
         num_particles=num_particles,
-        reparameterized=False,
         return_log_marginal_likelihood=False,
         return_latents=True,
         return_original_latents=False,
@@ -220,16 +219,14 @@ def predict_observations(
             state.sample(
                 transition.transition(last_latent, time=time),
                 batch_size,
-                num_particles,
-                reparameterized=False
+                num_particles
             )
         )
         predicted_observations.append(
             state.sample(
                 emission.emission(predicted_latents[-1], time=time),
                 batch_size,
-                num_particles,
-                reparameterized=False
+                num_particles
             )
         )
         last_latent = predicted_latents[-1]
@@ -238,6 +235,7 @@ def predict_observations(
         inference_result['log_weight']
 
 
+# NOTE: old and untested
 def reconstruct_and_predict_observations(
     algorithm,
     observations,
@@ -286,7 +284,6 @@ def reconstruct_and_predict_observations(
         emission=emission,
         proposal=proposal,
         num_particles=num_particles,
-        reparameterized=False,
         return_log_marginal_likelihood=False,
         return_latents=True,
         return_original_latents=False,
@@ -303,16 +300,14 @@ def reconstruct_and_predict_observations(
             state.sample(
                 transition.transition(last_latent, time=time),
                 batch_size,
-                num_particles,
-                reparameterized=False
+                num_particles
             )
         )
         predicted_observations.append(
             state.sample(
                 emission.emission(predicted_latents[-1], time=time),
                 batch_size,
-                num_particles,
-                reparameterized=False
+                num_particles
             )
         )
         last_latent = predicted_latents[-1]
@@ -322,11 +317,56 @@ def reconstruct_and_predict_observations(
             state.sample(
                 emission.emission(latent, time=time),
                 batch_size,
-                num_particles,
-                reparameterized=False
+                num_particles
             )
             for latent in inference_result['latents']
         ], \
         predicted_latents, \
         predicted_observations, \
         inference_result['log_weight']
+
+
+# TODO: test
+def sample_from_prior(
+    initial, transition, emission, num_timesteps, batch_size
+):
+    """Samples latents and observations from prior
+
+    input:
+        initial: dgm.model.InitialDistribution object
+        transition: dgm.model.TransitionDistribution object
+        emission: dgm.model.EmissionDistribution object
+        num_timesteps: int
+        batch_size: int
+
+    output:
+        latents: list of `torch.Tensor`s (or `dict` thereof)
+            [batch_size] of length len(observations)
+        observations: list of `torch.Tensor`s [batch_size, dim1, ..., dimN] or
+            `dict`s thereof
+    """
+
+    latents = []
+    observations = []
+
+    for time in range(num_timesteps):
+        if time == 0:
+            latents.append(state.sample(initial.initial(), batch_size, 1))
+        else:
+            latents.append(state.sample(transition.transition(
+                previous_latent=latents[-1], time=time
+            ), batch_size, 1))
+        observations.append(state.sample(emission.emission(
+            latent=latents[-1], time=time
+        ), batch_size, 1))
+
+    def squeeze_num_particles(value):
+        if isinstance(value, dict):
+            return {k: squeeze_num_particles(v) for k, v in value.items()}
+        else:
+            return value.squeeze(1)
+
+    return tuple(map(
+        lambda values: list(map(squeeze_num_particles, values)),
+        [latents, observations]
+    ))
