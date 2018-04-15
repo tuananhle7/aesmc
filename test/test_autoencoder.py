@@ -7,6 +7,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 import unittest
+import pdb
 
 
 class MyInitialNetwork(model.InitialNetwork):
@@ -123,7 +124,7 @@ class TestAutoEncoder(unittest.TestCase):
             num_particles=num_particles,
             autoencoder_algorithm=ae.AutoencoderAlgorithm.WAKE_THETA
         )
-        print("wake theta elbo")
+        print("Wake theta elbo: ")
         print(wake_theta_elbo)
         torch.mean(wake_theta_elbo).backward()
         
@@ -132,22 +133,22 @@ class TestAutoEncoder(unittest.TestCase):
             my_initial_network.mean.grad.size()
         )
 
-        print("intermediate phi is ", my_proposal_network.multiplier.grad)
+        print("Phi grad afte wake_theta backprop: ", my_proposal_network.multiplier.grad)
 
         phi_optimizer.zero_grad()
 
-        print("intermediate phi is ", my_proposal_network.multiplier.grad)
         sleep_phi_elbo = my_auto_encoder.forward(
             observations=observations,
             num_particles=num_particles,
             autoencoder_algorithm=ae.AutoencoderAlgorithm.SLEEP_PHI,
             wake_sleep_mode=ws.WakeSleepAlgorithm.WS
         )
-        print("Sleep phi elbo")
+
+        print("Sleep phi elbo: ")
         print(sleep_phi_elbo)
         torch.mean(sleep_phi_elbo).backward()
 
-        print("intermediate phi is ", my_proposal_network.multiplier.grad)
+        print("Phi grad after sleep phi backprop: ", my_proposal_network.multiplier.grad)
         self.assertEqual(
             my_proposal_network.multiplier.size(),
             my_proposal_network.multiplier.grad.size()

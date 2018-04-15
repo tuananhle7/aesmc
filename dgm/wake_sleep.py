@@ -47,79 +47,71 @@ def infer(
     return_log_weights=False
 ):
 
-    batch_size = next(iter(observations[0].values())).size(0) \
-        if isinstance(observations[0], dict) else observations[0].size(0)
+    #  batch_size = next(iter(observations[0].values())).size(0) \
+    #      if isinstance(observations[0], dict) else observations[0].size(0)
+    #
+    #  log_weights = []
+    #  latents = []
+    #
+    #  _proposal = proposal.proposal(time=0, observations=observations)
+    #  latent = state.sample(_proposal, batch_size, num_particles)
+    #  proposal_log_prob = state.log_prob(_proposal, latent)
+    #  initial_log_prob = state.log_prob(initial.initial(), latent)
+    #  emission_log_prob = state.log_prob(
+    #      emission.emission(latent=latent, time=0),
+    #      expand_observation(observations[0], num_particles)
+    #  )
+    #
+    #  log_weights.append(
+    #      initial_log_prob + emission_log_prob - proposal_log_prob
+    #  )
+    #  if return_latents:
+    #      latents.append(latent)
+    #
+    #  for time in range(1, len(observations)):
+    #      previous_latent = latent
+    #
+    #      _proposal = proposal.proposal(
+    #          previous_latent=previous_latent,
+    #          time=time,
+    #          observations=observations
+    #      )
+    #      latent = state.sample(_proposal, batch_size, num_particles)
+    #      proposal_log_prob = state.log_prob(_proposal, latent)
+    #      transition_log_prob = state.log_prob(
+    #          transition.transition(previous_latent=previous_latent, time=time),
+    #          latent
+    #      )
+    #      emission_log_prob = state.log_prob(
+    #          emission.emission(latent=latent, time=time),
+    #          expand_observation(observations[time], num_particles)
+    #      )
+    #
+    #      if return_latents:
+    #          latents.append(latent)
+    #
+    #      log_weights.append(
+    #          transition_log_prob + emission_log_prob - proposal_log_prob
+    #      )
+    #
+    #  if return_log_marginal_likelihood:
+    #      log_weight = torch.sum(torch.stack(log_weights, dim=0), dim=0)
+    #      log_marginal_likelihood = math.logsumexp(log_weight, dim=1) - \
+    #          np.log(num_particles)
+    #  else:
+    #      log_marginal_likelihood = None
+    #
+    #  if return_log_weight:
+    #      if not return_log_marginal_likelihood:
+    #          # already calculated above
+    #          log_weight = torch.sum(torch.stack(log_weights, dim=0), dim=0)
+    #  else:
+    #      log_weight = None
+    #
+    #  if not return_log_weights:
+    #      log_weights = None
 
-    log_weights = []
-    latents = []
-
-    _proposal = proposal.proposal(time=0, observations=observations)
-    latent = state.sample(_proposal, batch_size, num_particles)
-    proposal_log_prob = state.log_prob(_proposal, latent)
-    initial_log_prob = state.log_prob(initial.initial(), latent)
-    emission_log_prob = state.log_prob(
-        emission.emission(latent=latent, time=0),
-        expand_observation(observations[0], num_particles)
-    )
-
-    log_weights.append(
-        initial_log_prob + emission_log_prob - proposal_log_prob
-    )
-    if return_latents:
-        latents.append(latent)
-
-    for time in range(1, len(observations)):
-        previous_latent = latent
-
-        _proposal = proposal.proposal(
-            previous_latent=previous_latent,
-            time=time,
-            observations=observations
-        )
-        latent = state.sample(_proposal, batch_size, num_particles)
-        proposal_log_prob = state.log_prob(_proposal, latent)
-        transition_log_prob = state.log_prob(
-            transition.transition(previous_latent=previous_latent, time=time),
-            latent
-        )
-        emission_log_prob = state.log_prob(
-            emission.emission(latent=latent, time=time),
-            expand_observation(observations[time], num_particles)
-        )
-
-        if return_latents:
-            latents.append(latent)
-
-        log_weights.append(
-            transition_log_prob + emission_log_prob - proposal_log_prob
-        )
-
-    if return_log_marginal_likelihood:
-        log_weight = torch.sum(torch.stack(log_weights, dim=0), dim=0)
-        log_marginal_likelihood = math.logsumexp(log_weight, dim=1) - \
-            np.log(num_particles)
-    else:
-        log_marginal_likelihood = None
-
-    if return_log_weight:
-        if not return_log_marginal_likelihood:
-            # already calculated above
-            log_weight = torch.sum(torch.stack(log_weights, dim=0), dim=0)
-    else:
-        log_weight = None
-
-    if not return_log_weights:
-        log_weights = None
-
-    if (wake_sleep_mode == WakeSleepAlgorithm.IGNORE):
-        return {
-            'log_marginal_likelihood': log_marginal_likelihood,
-            'latents': latents,
-            'log_weight': log_weight,
-            'log_weights': log_weights,
-        }
-
-    elif (wake_sleep_mode == WakeSleepAlgorithm.WS):
+    if (wake_sleep_mode == WakeSleepAlgorithm.WS):
         batch_size = next(iter(observations[0].values())).size(0) \
             if isinstance(observations[0], dict) else observations[0].size(0)
 
@@ -133,12 +125,14 @@ def infer(
         previous_latent = _initial.detach()
 
         log_probs.append(proposal_log_prob)
-        observations = _emission.unsqueeze(0).detach()
+        samples = _emission.unsqueeze(0).detach()
+        #  samples = [_emission.detach()]
         for time in range(1, len(observations)):
             _next_latent = state.sample(transition.transition(previous_latent=previous_latent, time=time), batch_size, num_particles)
             _emission = state.sample(emission.emission(latent=_next_latent, time=time), batch_size, num_particles)
-            observations = torch.cat((observations, _emission.unsqueeze(0).detach()), 0)
-            proposal_log_prob = state.log_prob(proposal.proposal(time=time, observations=observations), _next_latent)
+            samples = torch.cat((samples, _emission.unsqueeze(0).detach()), 0)
+            #  samples.append(_emission.detach())
+            proposal_log_prob = state.log_prob(proposal.proposal(time=time, observations=samples, previous_latent=previous_latent), _next_latent)
             previous_latent = _next_latent.detach()
         
             log_probs.append(proposal_log_prob)

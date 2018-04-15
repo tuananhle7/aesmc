@@ -84,8 +84,8 @@ class AutoEncoder(nn.Module):
             autoencoder_algorithm = AutoencoderAlgorithm.IWAE
             num_particles = 1
 
-        #  if autoencoder_algorithm == AutoencoderAlgorithm.WAKE_THETA:
-        #      autoencoder_algorithm = AutoencoderAlgorithm.IWAE
+        if autoencoder_algorithm == AutoencoderAlgorithm.WAKE_THETA:
+            autoencoder_algorithm = AutoencoderAlgorithm.IWAE
 
         # TODO: implement
         # - DiscreteGradientEstimator.REINFORCE and VIMCO
@@ -160,40 +160,6 @@ class AutoEncoder(nn.Module):
                 return_log_weights=False,
                 return_ancestral_indices=False
             )['log_marginal_likelihood']
-
-        elif autoencoder_algorithm == AutoencoderAlgorithm.WAKE_THETA:
-            #  iwae_elbo =  inference.infer(
-            #      inference_algorithm=inference.InferenceAlgorithm.IS,
-            #      observations=observations,
-            #      initial=self.initial,
-            #      transition=self.transition,
-            #      emission=self.emission,
-            #      proposal=self.proposal,
-            #      num_particles=num_particles,
-            #      return_log_marginal_likelihood=True,
-            #      return_latents=False,
-            #      return_original_latents=False,
-            #      return_log_weight=False,
-            #      return_log_weights=False,
-            #      return_ancestral_indices=False
-            #  )['log_marginal_likelihood']
-            #
-            #  print("IWAE ELBO IS, ", iwae_elbo)
-            ws_elbo = wake_sleep.infer(
-                wake_sleep_mode=wake_sleep_mode,
-                observations=observations,
-                initial=self.initial,
-                transition=self.transition,
-                emission=self.emission,
-                proposal=self.proposal,
-                num_particles=num_particles,
-                return_log_marginal_likelihood=True,
-                return_latents=False,
-                return_log_weight=False,
-                return_log_weights=False
-            )['log_marginal_likelihood']
-
-            return ws_elbo
         elif autoencoder_algorithm == AutoencoderAlgorithm.SLEEP_PHI:
             return wake_sleep.infer(
                 wake_sleep_mode=wake_sleep_mode,
