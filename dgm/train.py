@@ -9,6 +9,7 @@ import torch.nn as nn
 import torch.utils.data
 
 
+# TODO: Consider putting this as a method of the AutoEncoder object
 def get_theta_parameters(autoencoder):
     result = []
     for network in [
@@ -23,6 +24,7 @@ def get_theta_parameters(autoencoder):
         return result
 
 
+# TODO: Consider putting this as a method of the AutoEncoder object
 def get_phi_parameters(autoencoder):
     if (
         (autoencoder.proposal is None) or

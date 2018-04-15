@@ -172,6 +172,90 @@ class TestAutoEncoder(unittest.TestCase):
         fig.savefig(filename, bbox_inches='tight')
         print('\nPlot saved to {}'.format(filename))
 
+    def test_gmm(self):
+        from .models import gmm
+        num_mixtures = 5
+
+        temp = np.arange(num_mixtures) + 5
+        true_mixture_probs = temp / np.sum(temp)
+        init_mixture_probs_pre_softmax = np.array(
+            list(reversed(2 * np.arange(num_mixtures)))
+        )
+
+        mean_multiplier = 10
+
+        stds = np.array([5 for _ in range(num_mixtures)])
+        softmax_multiplier = 0.5
+
+        true_prior = gmm.Prior(
+            init_mixture_probs_pre_softmax=np.log(
+                true_mixture_probs
+            ) / softmax_multiplier,
+            softmax_multiplier=softmax_multiplier
+        )
+        likelihood = gmm.Likelihood(mean_multiplier, stds)
+        prior = gmm.Prior(
+            init_mixture_probs_pre_softmax=init_mixture_probs_pre_softmax,
+            softmax_multiplier=softmax_multiplier
+        )
+        inference_network = gmm.InferenceNetwork(num_mixtures)
+
+        autoencoder = dgm.autoencoder.AutoEncoder(
+            prior, None, likelihood, inference_network
+        )
+
+        num_particles = 5
+        batch_size = 100
+        num_iterations = 20000
+
+        training_stats = gmm.TrainingStats(logging_interval=1000)
+        dataloader = dgm.train.get_synthetic_dataloader(
+            true_prior, None, likelihood, 1, batch_size
+        )
+
+        dgm.train.train_autoencoder(
+            autoencoder,
+            dataloader,
+            autoencoder_algorithm=dgm.autoencoder.AutoencoderAlgorithm.IWAE,
+            num_epochs=1,
+            num_iterations_per_epoch=num_iterations,
+            num_particles=num_particles,
+            callback=training_stats
+        )
+
+        num_test_data = 100
+        prior_l2, posterior_l2 = gmm.get_stats(
+            training_stats.mixture_probs_history,
+            training_stats.inference_network_state_dict_history,
+            true_prior, likelihood, num_test_data
+        )
+
+        # Plotting
+        fig, axs = plt.subplots(2, 1, sharex=True)
+        fig.set_size_inches(4, 4)
+
+        for idx, (ax, data, ylabel) in enumerate(zip(
+            axs,
+            [prior_l2, posterior_l2],
+            ['$|| p_{\\theta}(z) - p_{\\theta^*}(z) ||$',
+             'Avg. test\n$|| q_\phi(z | x) - p_{\\theta^*}(z | x) ||$']
+        )):
+            ax.plot(training_stats.iteration_idx_history, data)
+            ax.set_ylabel(ylabel)
+            ax.set_yscale('log')
+            ax.spines['top'].set_visible(False)
+            ax.spines['right'].set_visible(False)
+
+        axs[0].set_title('Gaussian Mixture Model')
+        axs[-1].set_xlabel('Iteration')
+        fig.tight_layout()
+        filename = './test/test_autoencoder_plots/gmm.pdf'
+        fig.savefig(filename, bbox_inches='tight')
+        print('\nPlot saved to {}'.format(filename))
+
+        self.assertAlmostEqual(prior_l2[-1], 0, delta=1e-1)
+        self.assertAlmostEqual(posterior_l2[-1], 0, delta=6e-1)
+
 
 if __name__ == '__main__':
     unittest.main()
