@@ -73,7 +73,7 @@ class TestAutoEncoder(unittest.TestCase):
         observations = list(torch.rand(num_timesteps, batch_size))
 
         my_initial_network = MyInitialNetwork(0)
-        my_transition_network = MyTransitionNetwork(1.2)
+        my_transition_network = MyTransitionNetwork(0.2)
         my_emission_network = MyEmissionNetwork(0.9)
         my_proposal_network = MyProposalNetwork(1.1)
         my_auto_encoder = ae.AutoEncoder(
@@ -147,6 +147,7 @@ class TestAutoEncoder(unittest.TestCase):
         print("Sleep phi elbo: ")
         print(sleep_phi_elbo)
         torch.mean(sleep_phi_elbo).backward()
+        phi_optimizer.zero_grad()
 
         print("Phi grad after sleep phi backprop: ", my_proposal_network.multiplier.grad)
         self.assertEqual(
@@ -154,14 +155,16 @@ class TestAutoEncoder(unittest.TestCase):
             my_proposal_network.multiplier.grad.size()
         )
 
-        #  wake_phi_elbo = my_auto_encoder.forward(
-        #      observations=observations,
-        #      num_particles=num_particles,
-        #      autoencoder_algorithm=ae.AutoencoderAlgorithm.WAKE_PHI,
-        #      wake_sleep_mode=ws.WakeSleepAlgorithm.WW
-        #  )
+        wake_phi_elbo = my_auto_encoder.forward(
+            observations=observations,
+            num_particles=num_particles,
+            autoencoder_algorithm=ae.AutoencoderAlgorithm.WAKE_PHI,
+            wake_sleep_mode=ws.WakeSleepAlgorithm.WW
+        )
 
-        #  print(wake_theta_elbo)
+        print("Wake phi elbo: ")
+        print(wake_theta_elbo)
 
+        #  print("Phi grad after wake phi backprop: ", my_proposal_network.multiplier.grad)
 if __name__ == '__main__':
     unittest.main()

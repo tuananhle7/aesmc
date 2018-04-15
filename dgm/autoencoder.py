@@ -89,8 +89,6 @@ class AutoEncoder(nn.Module):
 
         # TODO: implement
         # - DiscreteGradientEstimator.REINFORCE and VIMCO
-        # - AutoencoderAlgorithm.WAKE_PHI, SLEEP_PHI
-
 
         #  if autoencoder_algorithm == AutoencoderAlgorithm.AESMC:
         if autoencoder_algorithm == AutoencoderAlgorithm.AESMC:

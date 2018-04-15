@@ -1,4 +1,4 @@
-from . import math
+from .math import *
 from . import state
 from .util import *
 
@@ -15,24 +15,6 @@ class WakeSleepAlgorithm(enum.Enum):
     WSW = 3 
     WSWA = 4
 
-def logsumexp(values, dim=0, keepdim=False):
-    """Logsumexp of a Tensor/Variable.
-    See https://en.wikipedia.org/wiki/LogSumExp.
-    input:
-        values: Tensor/Variable [dim_1, ..., dim_N]
-        dim: n
-    output: result Tensor/Variable
-        [dim_1, ..., dim_{n - 1}, dim_{n + 1}, ..., dim_N] where
-        result[i_1, ..., i_{n - 1}, i_{n + 1}, ..., i_N] =
-            log(sum_{i_n = 1}^N exp(values[i_1, ..., i_N]))
-    """
-
-    values_max, _ = torch.max(values, dim=dim, keepdim=True)
-    result = values_max + torch.log(torch.sum(
-        torch.exp(values - values_max), dim=dim, keepdim=True
-    ))
-    return result if keepdim else result.squeeze(dim)
-
 def infer(
     wake_sleep_mode,
     observations,
@@ -41,6 +23,7 @@ def infer(
     emission,
     proposal,
     num_particles,
+    evidence=None,
     return_log_marginal_likelihood=False,
     return_latents=True,
     return_log_weight=True,
@@ -150,10 +133,87 @@ def infer(
         }
 
     elif (wake_sleep_mode == WakeSleepAlgorithm.WW):
-        return 0
+        batch_size = next(iter(observations[0].values())).size(0) \
+            if isinstance(observations[0], dict) else observations[0].size(0)
 
-    return {
-        'test': [0],
-    }
+        log_infs = []
+        log_weights = []
+        latents = []
 
+        _proposal = proposal.proposal(time=0, observations=observations)
+        latent = state.sample(_proposal, batch_size, num_particles)
+        proposal_log_prob = state.log_prob(_proposal, latent)
 
+        log_q = state.log_prob(_proposal, latent)
+
+        log_infs.append(log_q)
+
+        initial_log_prob = state.log_prob(initial.initial(), latent)
+        emission_log_prob = state.log_prob(
+            emission.emission(latent=latent, time=0),
+            expand_observation(observations[0], num_particles)
+        )
+
+        evidence_log_prob = 0 if evidence is None \
+                            else state.log_prob(
+                                    evidence.emission(time=0), 
+                                    expand_observation(observations[0], num_particles))
+
+        log_weights.append(
+            initial_log_prob + emission_log_prob - proposal_log_prob - evidence_log_prob
+        )
+
+        if return_latents:
+            latents.append(latent)
+
+        for time in range(1, len(observations)):
+            previous_latent = latent
+
+            _proposal = proposal.proposal(
+                previous_latent=previous_latent,
+                time=time,
+                observations=observations
+            )
+            latent = state.sample(_proposal, batch_size, num_particles)
+            proposal_log_prob = state.log_prob(_proposal, latent)
+            log_q = state.log_prob(_proposal, latent)
+
+            log_infs.append(log_q)
+
+            transition_log_prob = state.log_prob(
+                transition.transition(previous_latent=previous_latent, time=time),
+                latent
+            )
+            emission_log_prob = state.log_prob(
+                emission.emission(latent=latent, time=time),
+                expand_observation(observations[time], num_particles)
+            )
+
+            evidence_log_prob = 0 if evidence is None \
+                                else state.log_prob(
+                                        evidence.emission(time=time), 
+                                        expand_observation(observations[time], num_particles))
+
+            if return_latents:
+                latents.append(latent)
+
+            log_weights.append(
+                transition_log_prob + emission_log_prob - proposal_log_prob - evidence_log_prob
+            )
+
+        if return_log_marginal_likelihood:
+            log_weight = torch.sum(torch.stack(log_weights, dim=0), dim=0)
+            normalized_log_weight = torch.exp(lognormexp(log_weight, dim=1))
+            log_q = torch.sum(torch.stack(log_infs, dim=0), dim=0)
+            log_marginal_likelihood = normalized_log_weight.detach() * log_q
+        else:
+            log_marginal_likelihood = None
+
+        return {
+            'log_marginal_likelihood': log_marginal_likelihood,
+            'latents': latents,
+            'log_weight': log_weight,
+            'log_weights': log_weights,
+        }
+
+    raise TypeError('inference_algorithm must be an InferenceAlgorithm')
