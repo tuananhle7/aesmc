@@ -1,6 +1,6 @@
 # TODO: implement tests (?)
 
-from . import autoencoder
+from . import autoencoder as ae
 from . import statistics
 
 import itertools
@@ -34,14 +34,14 @@ def get_phi_parameters(autoencoder):
 
 
 def train_autoencoder(
-    autoencoder_,
+    autoencoder,
     dataloader,
     autoencoder_algorithm,
     num_epochs,
     num_iterations_per_epoch=None,
     num_particles=None,
-    discrete_gradient_estimator=autoencoder.DiscreteGradientEstimator.REINFORCE,
-    resampling_gradient_estimator=autoencoder.ResamplingGradientEstimator.IGNORE,
+    discrete_gradient_estimator=ae.DiscreteGradientEstimator.REINFORCE,
+    resampling_gradient_estimator=ae.ResamplingGradientEstimator.IGNORE,
     optimizer_algorithm=torch.optim.Adam,
     optimizer_kwargs={},
     theta_optimizer_algorithm=None,
@@ -58,8 +58,8 @@ def train_autoencoder(
         phi_optimizer_algorithm = optimizer_algorithm
         phi_optimizer_kwargs = optimizer_kwargs
 
-    theta_parameters = get_theta_parameters(autoencoder_)
-    phi_parameters = get_phi_parameters(autoencoder_)
+    theta_parameters = get_theta_parameters(autoencoder)
+    phi_parameters = get_phi_parameters(autoencoder)
 
     optimize_theta = theta_parameters is not None
     optimize_phi = phi_parameters is not None
@@ -74,9 +74,9 @@ def train_autoencoder(
         )
 
     if autoencoder_algorithm in [
-        autoencoder.AutoencoderAlgorithm.VAE,
-        autoencoder.AutoencoderAlgorithm.IWAE,
-        autoencoder.AutoencoderAlgorithm.AESMC
+        ae.AutoencoderAlgorithm.VAE,
+        ae.AutoencoderAlgorithm.IWAE,
+        ae.AutoencoderAlgorithm.AESMC
     ]:
         for epoch_idx in range(num_epochs):
             for epoch_iteration_idx, observations in enumerate(dataloader):
@@ -90,7 +90,7 @@ def train_autoencoder(
                 if optimize_phi:
                     phi_optimizer.zero_grad()
 
-                loss = -torch.mean(autoencoder_.forward(
+                loss = -torch.mean(autoencoder.forward(
                     observations,
                     num_particles,
                     autoencoder_algorithm,
@@ -106,7 +106,7 @@ def train_autoencoder(
                     phi_optimizer.step()
 
                 if callback is not None:
-                    callback(epoch_idx, epoch_iteration_idx, autoencoder_)
+                    callback(epoch_idx, epoch_iteration_idx, autoencoder)
     else:
         raise NotImplementedError(
             'autoencoder_algorithm {} not implemented.'.format(

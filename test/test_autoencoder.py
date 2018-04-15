@@ -128,7 +128,7 @@ class TestAutoEncoder(unittest.TestCase):
 
         training_stats = gaussian.TrainingStats(logging_interval=500)
 
-        print('\n---\nTraining the \"gaussian\" autoencoder.')
+        print('\nTraining the \"gaussian\" autoencoder.')
         dgm.train.train_autoencoder(
             autoencoder,
             dgm.train.get_synthetic_dataloader(
