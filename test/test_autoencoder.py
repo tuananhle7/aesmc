@@ -1,3 +1,4 @@
+import dgm
 import dgm.autoencoder as ae
 import dgm.wake_sleep as ws
 import dgm.model as model
@@ -7,10 +8,9 @@ import numpy as np
 import torch
 import torch.nn as nn
 import unittest
-import pdb
 
 
-class MyInitialNetwork(model.InitialNetwork):
+class MyInitialNetwork(dgm.model.InitialNetwork):
     def __init__(self, initial_mean):
         super(MyInitialNetwork, self).__init__()
         self.mean = nn.Parameter(torch.Tensor([initial_mean]))
@@ -20,7 +20,7 @@ class MyInitialNetwork(model.InitialNetwork):
         return torch.distributions.Normal(loc=self.mean, scale=self.std)
 
 
-class MyTransitionNetwork(model.TransitionNetwork):
+class MyTransitionNetwork(dgm.model.TransitionNetwork):
     def __init__(self, transition_multiplier):
         super(MyTransitionNetwork, self).__init__()
         self.multiplier = nn.Parameter(torch.Tensor([transition_multiplier]))
@@ -33,7 +33,7 @@ class MyTransitionNetwork(model.TransitionNetwork):
         )
 
 
-class MyEmissionNetwork(model.EmissionNetwork):
+class MyEmissionNetwork(dgm.model.EmissionNetwork):
     def __init__(self, emission_multiplier):
         super(MyEmissionNetwork, self).__init__()
         self.multiplier = nn.Parameter(torch.Tensor([emission_multiplier]))
@@ -46,7 +46,7 @@ class MyEmissionNetwork(model.EmissionNetwork):
         )
 
 
-class MyProposalNetwork(model.ProposalNetwork):
+class MyProposalNetwork(dgm.model.ProposalNetwork):
     def __init__(self, proposal_multiplier):
         super(MyProposalNetwork, self).__init__()
         self.multiplier = nn.Parameter(torch.Tensor([proposal_multiplier]))
@@ -97,6 +97,7 @@ class TestAutoEncoder(unittest.TestCase):
                 my_initial_network.mean.grad.size()
             )
 
+<<<<<<< HEAD
     def test_wake_sleep(self):
         batch_size = 4
         num_particles = 5
@@ -147,9 +148,10 @@ class TestAutoEncoder(unittest.TestCase):
         print("Sleep phi elbo: ")
         print(sleep_phi_elbo)
         torch.mean(sleep_phi_elbo).backward()
-        phi_optimizer.zero_grad()
 
         print("Phi grad after sleep phi backprop: ", my_proposal_network.multiplier.grad)
+        
+        phi_optimizer.zero_grad()
         self.assertEqual(
             my_proposal_network.multiplier.size(),
             my_proposal_network.multiplier.grad.size()
@@ -163,8 +165,89 @@ class TestAutoEncoder(unittest.TestCase):
         )
 
         print("Wake phi elbo: ")
-        print(wake_theta_elbo)
+        print(wake_phi_elbo)
 
-        #  print("Phi grad after wake phi backprop: ", my_proposal_network.multiplier.grad)
+        torch.mean(wake_phi_elbo.backward())
+        print("Phi grad after wake phi backprop: ", my_proposal_network.multiplier.grad)
+
+    def test_gaussian(self):
+        from .models import gaussian
+
+        prior_std = 1
+
+        true_prior_mean = 0
+        true_obs_std = 1
+
+        prior_mean_init = 2
+        obs_std_init = 0.5
+
+        q_init_mult, q_init_bias, q_init_std = 2, 2, 2
+        q_true_mult, q_true_bias, q_true_std = gaussian.get_proposal_params(
+            true_prior_mean, prior_std, true_obs_std
+        )
+
+        true_prior = gaussian.Prior(true_prior_mean, prior_std)
+        true_likelihood = gaussian.Likelihood(true_obs_std)
+
+        prior = gaussian.Prior(prior_mean_init, prior_std)
+        likelihood = gaussian.Likelihood(obs_std_init)
+        inference_network = gaussian.InferenceNetwork(
+            q_init_mult, q_init_bias, q_init_std
+        )
+
+        autoencoder = ae.AutoEncoder(
+            prior, None, likelihood, inference_network
+        )
+
+        num_particles = 2
+        batch_size = 10
+        num_iterations = 5000
+
+        training_stats = gaussian.TrainingStats(logging_interval=500)
+
+        print('\nTraining the \"gaussian\" autoencoder.')
+        dgm.train.train_autoencoder(
+            autoencoder,
+            dgm.train.get_synthetic_dataloader(
+                true_prior, None, true_likelihood, 1, batch_size
+            ),
+            autoencoder_algorithm=dgm.autoencoder.AutoencoderAlgorithm.IWAE,
+            num_epochs=1,
+            num_iterations_per_epoch=num_iterations,
+            num_particles=num_particles,
+            optimizer_algorithm=torch.optim.SGD,
+            optimizer_kwargs={'lr': 0.01},
+            callback=training_stats
+        )
+
+        fig, axs = plt.subplots(5, 1, sharex=True)
+        fig.set_size_inches(5, 8)
+
+        for ax, data, true, ylabel in zip(
+            axs,
+            [
+                training_stats.prior_mean_history,
+                training_stats.obs_std_history,
+                training_stats.q_mult_history,
+                training_stats.q_bias_history,
+                training_stats.q_std_history
+            ],
+            [true_prior_mean, true_obs_std, q_true_mult,
+             q_true_bias, q_true_std],
+            ['$\mu_0$', '$\sigma$', '$a$', '$b$', '$c$']
+        ):
+            ax.plot(training_stats.iteration_idx_history, data)
+            ax.axhline(true, color='black')
+            ax.set_ylabel(ylabel)
+            self.assertAlmostEqual(data[-1], true, delta=1e-1)
+
+        axs[-1].set_xlabel('Iteration')
+        axs[0].set_title('Gaussian')
+        fig.tight_layout()
+
+        filename = './test/test_autoencoder_plots/gaussian.pdf'
+        fig.savefig(filename, bbox_inches='tight')
+        print('\nPlot saved to {}'.format(filename))
+
 if __name__ == '__main__':
     unittest.main()
