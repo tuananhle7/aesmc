@@ -96,6 +96,7 @@ def sample_ancestral_index(log_weight):
 
 def infer(
     inference_algorithm,
+    wake_sleep_mode,
     observations,
     initial,
     transition,
@@ -305,6 +306,8 @@ def ancestral_indices_log_prob(ancestral_indices, log_weights):
 
         Note: returns a zero `torch.Tensor` [batch_size] if num_timesteps == 1.
     """
+    if ancestral_indices is None and log_weights is None:
+        return 0
 
     assert(len(ancestral_indices) == len(log_weights) - 1)
     if len(ancestral_indices) == 0:
@@ -366,6 +369,8 @@ def latents_log_prob(
             q_0(x_0^k) is the initial proposal density
             q_t(x_t | x_{t - 1}) is an intermediate proposal density
     """
+    if original_latents is None and ancestral_indices is None:
+        return 0
 
     if ancestral_indices is None:
         result = 0

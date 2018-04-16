@@ -42,6 +42,7 @@ def train_autoencoder(
     num_epochs,
     num_iterations_per_epoch=None,
     num_particles=None,
+    wake_sleep_mode=ae.WakeSleepAlgorithm.IGNORE,
     discrete_gradient_estimator=ae.DiscreteGradientEstimator.REINFORCE,
     resampling_gradient_estimator=ae.ResamplingGradientEstimator.IGNORE,
     optimizer_algorithm=torch.optim.Adam,
@@ -92,13 +93,16 @@ def train_autoencoder(
                 if optimize_phi:
                     phi_optimizer.zero_grad()
 
-                loss = -torch.mean(autoencoder.forward(
+                elbo = autoencoder.forward(
                     observations,
                     num_particles,
                     autoencoder_algorithm,
                     discrete_gradient_estimator,
-                    resampling_gradient_estimator
-                ))
+                    resampling_gradient_estimator,
+                    wake_sleep_mode
+                )
+                #  import pdb; pdb.set_trace()
+                loss = -torch.mean(elbo)
                 loss.backward()
 
                 if optimize_theta:
@@ -109,6 +113,40 @@ def train_autoencoder(
 
                 if callback is not None:
                     callback(epoch_idx, epoch_iteration_idx, autoencoder)
+    #  elif autoencoder_algorithm in [
+    #      ae.AutoencoderAlgorithm.WAKE_THETA,
+    #      ae.AutoencoderAlgorithm.SLEEP_PHI,
+    #      ae.AutoencoderAlgorithm.WAKE_PHI
+    #  ]:
+    #      for epoch_idx in range(num_epochs):
+    #          for epoch_iteration_idx, observations in enumerate(dataloader):
+    #              if num_iterations_per_epoch is not None:
+    #                  if epoch_iteration_idx == num_iterations_per_epoch:
+    #                      break
+    #
+    #              if optimize_theta:
+    #                  theta_optimizer.zero_grad()
+    #
+    #              if optimize_phi:
+    #                  phi_optimizer.zero_grad()
+    #
+    #              loss = -torch.mean(autoencoder.forward(
+    #                  observations,
+    #                  num_particles,
+    #                  autoencoder_algorithm,
+    #                  discrete_gradient_estimator,
+    #                  resampling_gradient_estimator
+    #              ))
+    #              loss.backward()
+    #
+    #              if optimize_theta:
+    #                  theta_optimizer.step()
+    #
+    #              if optimize_phi:
+    #                  phi_optimizer.step()
+    #
+    #              if callback is not None:
+    #                  callback(epoch_idx, epoch_iteration_idx, autoencoder)
     else:
         raise NotImplementedError(
             'autoencoder_algorithm {} not implemented.'.format(
