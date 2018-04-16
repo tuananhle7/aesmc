@@ -15,6 +15,20 @@ class WakeSleepAlgorithm(enum.Enum):
     WSW = 3 
     WSWA = 4
 
+def mixture_sample_and_log_prob(proposal, sample, mixture_probs, sample_range=2):
+    num_samples = len(sample.view(-1))
+    uniform_samples = torch.Tensor.float(torch.multinomial(torch.ones(sample_range), num_samples, replacement=True))
+    indices = torch.multinomial(mixture_probs, num_samples, replacement=True)
+
+    samples = torch.cat([sample.view(-1).unsqueeze(1), uniform_samples.unsqueeze(1)], dim=1)
+    mixture_samples = torch.gather(samples, dim=1, index=indices.unsqueeze(-1)).squeeze(-1).view(sample.size())
+
+    log_sample = state.log_prob(proposal, sample)
+    log_pdfs = torch.cat([log_sample.view(-1).unsqueeze(1), -torch.log(torch.Tensor([sample_range]).expand(num_samples)).unsqueeze(1)], dim=1) 
+    log_mixture_pdfs = logsumexp(log_pdfs + torch.log(mixture_probs), dim=1).view(sample.size())
+
+    return mixture_samples, log_mixture_pdfs
+
 def infer(
     wake_sleep_mode,
     observations,
@@ -101,7 +115,9 @@ def infer(
         log_probs = []
         latents = []
 
-        _initial = state.sample(initial.initial(), batch_size, num_particles)
+        # TODO wtf squeeze hack
+        _initial = state.sample(initial.initial(), batch_size, num_particles).squeeze(-1)
+        #  _initial = state.sample(initial.initial(), batch_size, num_particles)
         _emission = state.sample(emission.emission(latent=_initial, time=0), batch_size, num_particles)
 
         proposal_log_prob = state.log_prob(proposal.proposal(time=0, observations=_emission), _initial)
@@ -122,7 +138,7 @@ def infer(
         
         if return_log_marginal_likelihood:
             log_prob = torch.sum(torch.stack(log_probs, dim=0), dim=0)
-            log_marginal_likelihood = math.logsumexp(log_prob, dim=1) - \
+            log_marginal_likelihood = -math.logsumexp(log_prob, dim=1) - \
                 np.log(num_particles)
 
         return {
@@ -140,11 +156,14 @@ def infer(
         log_weights = []
         latents = []
 
+        mixture_probs = torch.Tensor([1,0])
+
+
         _proposal = proposal.proposal(time=0, observations=observations)
         latent = state.sample(_proposal, batch_size, num_particles)
-        proposal_log_prob = state.log_prob(_proposal, latent)
+        mixture_latent, proposal_log_prob = mixture_sample_and_log_prob(_proposal, latent, mixture_probs)
 
-        log_q = state.log_prob(_proposal, latent)
+        log_q = state.log_prob(_proposal, mixture_latent)
 
         log_infs.append(log_q)
 
@@ -160,7 +179,7 @@ def infer(
                                     expand_observation(observations[0], num_particles))
 
         log_weights.append(
-            initial_log_prob + emission_log_prob - proposal_log_prob - evidence_log_prob
+            initial_log_prob + emission_log_prob - proposal_log_prob.detach() - evidence_log_prob
         )
 
         if return_latents:
@@ -176,6 +195,8 @@ def infer(
             )
             latent = state.sample(_proposal, batch_size, num_particles)
             proposal_log_prob = state.log_prob(_proposal, latent)
+            mixture_latent, proposal_log_prob = mixture_sample_and_log_prob(_proposal, latent, mixture_probs)
+
             log_q = state.log_prob(_proposal, latent)
 
             log_infs.append(log_q)
@@ -198,14 +219,14 @@ def infer(
                 latents.append(latent)
 
             log_weights.append(
-                transition_log_prob + emission_log_prob - proposal_log_prob - evidence_log_prob
+                transition_log_prob + emission_log_prob - proposal_log_prob.detach() - evidence_log_prob
             )
 
         if return_log_marginal_likelihood:
             log_weight = torch.sum(torch.stack(log_weights, dim=0), dim=0)
             normalized_log_weight = torch.exp(lognormexp(log_weight, dim=1))
             log_q = torch.sum(torch.stack(log_infs, dim=0), dim=0)
-            log_marginal_likelihood = normalized_log_weight.detach() * log_q
+            log_marginal_likelihood = -torch.sum(normalized_log_weight * log_q, dim=1)
         else:
             log_marginal_likelihood = None
 

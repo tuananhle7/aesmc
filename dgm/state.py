@@ -156,6 +156,7 @@ def log_prob(distribution, value, non_reparam=False):
             elif (value_ndimension - 1) == distribution_ndimension:
                 log_prob = distribution.log_prob(value.t()).t()
             else:
+                import pdb; pdb.set_trace()
                 raise RuntimeError(
                     'Incompatible distribution.batch_shape ({}) and '
                     'value.shape ({}).'.format(
