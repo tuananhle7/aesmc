@@ -326,10 +326,9 @@ def sleep_loss(
 ):
     # update theta and zero out phi
     loss = -torch.mean(wake_loss)
-    loss.backward(retain_graph=True)
+    loss.backward()
     wake_optimizer.step()
     sleep_optimizer.zero_grad()
-    loss.detach()
     #  torch.optim.Adam(proposal.parameters()).zero_grad()
 
     if (wake_sleep_mode == ae.WakeSleepAlgorithm.WS):
@@ -387,7 +386,7 @@ def sleep_loss(
         log_weights = []
         latents = []
 
-        mixture_probs = torch.Tensor([0.7,0.3])
+        mixture_probs = torch.Tensor([1.0,0.0])
 
 
         _proposal = proposal.proposal(time=0, observations=observations)
@@ -449,13 +448,13 @@ def sleep_loss(
             latents.append(latent)
 
             log_weights.append(
-                transition_log_prob + emission_log_prob - proposal_log_prob.detach() - evidence_log_prob
+                transition_log_prob + emission_log_prob - proposal_log_prob - evidence_log_prob
             )
 
         log_weight = torch.sum(torch.stack(log_weights, dim=0), dim=0)
         normalized_log_weight = torch.exp(math.lognormexp(log_weight, dim=1))
         log_q = torch.sum(torch.stack(log_infs, dim=0), dim=0)
-        log_marginal_likelihood = torch.sum(normalized_log_weight * log_q, dim=1)
+        log_marginal_likelihood = torch.sum(normalized_log_weight.detach() * log_q, dim=1)
 
         return {
             'log_marginal_likelihood': log_marginal_likelihood,

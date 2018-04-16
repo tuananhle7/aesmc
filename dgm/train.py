@@ -135,8 +135,9 @@ class SyntheticDataset(torch.utils.data.Dataset):
         self.batch_size = batch_size
 
     def __getitem__(self, index):
+        # TODO this is wrong, obs can be dict
         return list(map(
-            lambda observation: observation.squeeze(0),
+            lambda observation: observation.detach().squeeze(0),
             statistics.sample_from_prior(
                 self.initial,
                 self.transition,
