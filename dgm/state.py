@@ -126,8 +126,9 @@ def log_prob(distribution, value, non_reparam=False):
             [batch_size, num_particles, dim1, ..., dimN] or
             [batch_size, dim1, ..., dimN] or
             [dim1, ..., dimN] or `dict` thereof.
-        value: `torch.Tensor` [batch_size, num_particles, dim1, ..., dimN] or
-            `dict` thereof
+        value: `torch.Tensor` of size
+            [batch_size, num_particles, dim1, ..., dimN] +
+            distribution.event_shape or `dict` thereof
         non_reparam: bool; if True, only returns log probability of the
             non-reparameterizable part of the distribution (default: False).
 
@@ -146,14 +147,17 @@ def log_prob(distribution, value, non_reparam=False):
             # or
             # non_reparam is False
             value_ndimension = value.ndimension()
-            distribution_ndimension = len(distribution.batch_shape)
+            batch_shape_ndimension = len(distribution.batch_shape)
+            event_shape_ndimension = len(distribution.event_shape)
+            value_batch_shape_ndimension = \
+                value_ndimension - event_shape_ndimension
             if (
-                (value_ndimension == distribution_ndimension) or
-                ((value_ndimension - 2) == distribution_ndimension)
+                (value_batch_shape_ndimension == batch_shape_ndimension) or
+                ((value_batch_shape_ndimension - 2) == batch_shape_ndimension)
             ):
                 distribution._validate_sample(value)
                 log_prob = distribution.log_prob(value)
-            elif (value_ndimension - 1) == distribution_ndimension:
+            elif (value_batch_shape_ndimension - 1) == batch_shape_ndimension:
                 log_prob = distribution.log_prob(value.t()).t()
             else:
                 raise RuntimeError(
