@@ -218,10 +218,11 @@ class TestAutoEncoder(unittest.TestCase):
         dgm.train.train_autoencoder(
             autoencoder,
             dataloader,
-            autoencoder_algorithm=dgm.autoencoder.AutoencoderAlgorithm.IWAE,
+            autoencoder_algorithm=dgm.autoencoder.AutoencoderAlgorithm.WAKE_SLEEP,
             num_epochs=1,
             num_iterations_per_epoch=num_iterations,
             num_particles=num_particles,
+            wake_sleep_mode=ae.WakeSleepAlgorithm.WW,
             callback=training_stats
         )
 

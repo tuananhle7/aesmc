@@ -15,6 +15,7 @@ class InferenceAlgorithm(enum.Enum):
 
 
 def mixture_sample_and_log_prob(proposal, sample, mixture_probs, sample_range=2):
+    sample = torch.Tensor.float(sample)
     num_samples = len(sample.contiguous().view(-1))
     uniform_samples = torch.Tensor.float(torch.multinomial(torch.ones(sample_range), num_samples, replacement=True))
     indices = torch.multinomial(mixture_probs, num_samples, replacement=True)
@@ -386,7 +387,7 @@ def sleep_loss(
         log_weights = []
         latents = []
 
-        mixture_probs = torch.Tensor([1,0])
+        mixture_probs = torch.Tensor([0.7,0.3])
 
 
         _proposal = proposal.proposal(time=0, observations=observations)
