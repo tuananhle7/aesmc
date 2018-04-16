@@ -1,8 +1,5 @@
 import dgm
 import dgm.autoencoder as ae
-import dgm.wake_sleep as ws
-import dgm.model as model
-import dgm.state as st
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
@@ -66,15 +63,13 @@ class MyProposalNetwork(dgm.model.ProposalNetwork):
 
 class TestAutoEncoder(unittest.TestCase):
     def test_dimensions(self):
-        return
-        return 0
         batch_size = 4
         num_particles = 5
         num_timesteps = 6
         observations = list(torch.rand(num_timesteps, batch_size))
 
         my_initial_network = MyInitialNetwork(0)
-        my_transition_network = MyTransitionNetwork(0.2)
+        my_transition_network = MyTransitionNetwork(1.2)
         my_emission_network = MyEmissionNetwork(0.9)
         my_proposal_network = MyProposalNetwork(1.1)
         my_auto_encoder = ae.AutoEncoder(
@@ -98,80 +93,7 @@ class TestAutoEncoder(unittest.TestCase):
                 my_initial_network.mean.grad.size()
             )
 
-    def test_wake_sleep(self):
-        batch_size = 4
-        num_particles = 5
-        num_timesteps = 6
-        observations = list(torch.rand(num_timesteps, batch_size))
-
-        my_initial_network = MyInitialNetwork(0)
-        my_transition_network = MyTransitionNetwork(1.2)
-        my_emission_network = MyEmissionNetwork(0.9)
-        my_proposal_network = MyProposalNetwork(1.1)
-        my_auto_encoder = ae.AutoEncoder(
-            initial=my_initial_network,
-            transition=my_transition_network,
-            emission=my_emission_network,
-            proposal=my_proposal_network,
-        )
-
-
-        theta_optimizer = torch.optim.Adam(my_initial_network.parameters())
-        phi_optimizer = torch.optim.Adam(my_proposal_network.parameters())
-
-        #test iwae
-        wake_theta_elbo = my_auto_encoder.forward(
-            observations=observations,
-            num_particles=num_particles,
-            autoencoder_algorithm=ae.AutoencoderAlgorithm.WAKE_THETA
-        )
-        print("Wake theta elbo: ")
-        print(wake_theta_elbo)
-        torch.mean(wake_theta_elbo).backward()
-        
-        self.assertEqual(
-            my_initial_network.mean.size(),
-            my_initial_network.mean.grad.size()
-        )
-
-        print("Phi grad afte wake_theta backprop: ", my_proposal_network.multiplier.grad)
-
-        phi_optimizer.zero_grad()
-
-        sleep_phi_elbo = my_auto_encoder.forward(
-            observations=observations,
-            num_particles=num_particles,
-            autoencoder_algorithm=ae.AutoencoderAlgorithm.SLEEP_PHI,
-            wake_sleep_mode=ws.WakeSleepAlgorithm.WS
-        )
-
-        print("Sleep phi elbo: ")
-        print(sleep_phi_elbo)
-        torch.mean(sleep_phi_elbo).backward()
-
-        print("Phi grad after sleep phi backprop: ", my_proposal_network.multiplier.grad)
-        
-        phi_optimizer.zero_grad()
-        self.assertEqual(
-            my_proposal_network.multiplier.size(),
-            my_proposal_network.multiplier.grad.size()
-        )
-
-        wake_phi_elbo = my_auto_encoder.forward(
-            observations=observations,
-            num_particles=num_particles,
-            autoencoder_algorithm=ae.AutoencoderAlgorithm.WAKE_PHI,
-            wake_sleep_mode=ws.WakeSleepAlgorithm.WW
-        )
-
-        print("Wake phi elbo: ")
-        print(wake_phi_elbo)
-
-        torch.mean(wake_phi_elbo).backward()
-        print("Phi grad after wake phi backprop: ", my_proposal_network.multiplier.grad)
-
     def test_gaussian(self):
-        return
         from .models import gaussian
 
         prior_std = 1
@@ -333,6 +255,7 @@ class TestAutoEncoder(unittest.TestCase):
 
         self.assertAlmostEqual(prior_l2[-1], 0, delta=1e-1)
         self.assertAlmostEqual(posterior_l2[-1], 0, delta=6e-1)
+
 
 if __name__ == '__main__':
     unittest.main()
