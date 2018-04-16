@@ -15,19 +15,6 @@ class WakeSleepAlgorithm(enum.Enum):
     WSW = 3 
     WSWA = 4
 
-def mixture_sample_and_log_prob(proposal, sample, mixture_probs, sample_range=2):
-    num_samples = len(sample.view(-1))
-    uniform_samples = torch.Tensor.float(torch.multinomial(torch.ones(sample_range), num_samples, replacement=True))
-    indices = torch.multinomial(mixture_probs, num_samples, replacement=True)
-
-    samples = torch.cat([sample.view(-1).unsqueeze(1), uniform_samples.unsqueeze(1)], dim=1)
-    mixture_samples = torch.gather(samples, dim=1, index=indices.unsqueeze(-1)).squeeze(-1).view(sample.size())
-
-    log_sample = state.log_prob(proposal, sample)
-    log_pdfs = torch.cat([log_sample.view(-1).unsqueeze(1), -torch.log(torch.Tensor([sample_range]).expand(num_samples)).unsqueeze(1)], dim=1) 
-    log_mixture_pdfs = logsumexp(log_pdfs + torch.log(mixture_probs), dim=1).view(sample.size())
-
-    return mixture_samples, log_mixture_pdfs
 
 def infer(
     wake_sleep_mode,

@@ -55,7 +55,9 @@ class AutoEncoder(nn.Module):
         autoencoder_algorithm=AutoencoderAlgorithm.IWAE,
         discrete_gradient_estimator=DiscreteGradientEstimator.REINFORCE,
         resampling_gradient_estimator=ResamplingGradientEstimator.IGNORE,
-        wake_sleep_mode=WakeSleepAlgorithm.IGNORE
+        wake_sleep_mode=WakeSleepAlgorithm.IGNORE,
+        wake_optimizer=None,
+        sleep_optimizer=None
     ):
         """Evaluate a computation graph whose gradient is an estimator for the
         gradient of the ELBO.
@@ -129,7 +131,11 @@ class AutoEncoder(nn.Module):
             if discrete_gradient_estimator == DiscreteGradientEstimator.REINFORCE:
                 return_latents = True
         elif autoencoder_algorithm == AutoencoderAlgorithm.WAKE_SLEEP:
-            if wake_sleep_mode == WakeSleepAlgorithm.IGNORE or wake_sleep_mode > WakeSleepAlgorithm.WW:
+            inference_algorithm = inference.InferenceAlgorithm.WS
+            if wake_optimizer is None:
+                raise NotImplementedError('cannot use wake sleep mode without optimizer for model parameters')
+            #  if wake_sleep_mode == WakeSleepAlgorithm.IGNORE or wake_sleep_mode > WakeSleepAlgorithm.WW:
+            if wake_sleep_mode == WakeSleepAlgorithm.IGNORE:
                 raise NotImplementedError('cannot use wake sleep mode {} and {} together.'.format(\
                         wake_sleep_mode, autoencoder_algorithm))
         else:
@@ -139,6 +145,8 @@ class AutoEncoder(nn.Module):
         inference_result = inference.infer(
             inference_algorithm=inference_algorithm,
             wake_sleep_mode=wake_sleep_mode,
+            wake_optimizer=wake_optimizer,
+            sleep_optimizer=sleep_optimizer,
             observations=observations,
             initial=self.initial,
             transition=self.transition,
