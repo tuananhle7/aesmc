@@ -223,6 +223,7 @@ class TestSample(unittest.TestCase):
 
 class TestLogProb(unittest.TestCase):
     def test_dimensions(self):
+        categorical_dim = 5
         for batch_size, num_particles in [(2, 2), (2, 3)]:
             for dims in [(), (4,), (4, 5), (2,), (2, 3)]:
                 for batch_shape in [
@@ -234,6 +235,26 @@ class TestLogProb(unittest.TestCase):
                     distribution = torch.distributions.Normal(
                         loc=torch.zeros(size=batch_shape),
                         scale=torch.ones(size=batch_shape)
+                    )
+                    self.assertEqual(
+                        state.log_prob(distribution, value).size(),
+                        torch.Size([batch_size, num_particles])
+                    )
+
+                    # non-empty event_shape
+                    value = torch.zeros(
+                        size=(batch_size, num_particles) + dims +
+                        (categorical_dim,)
+                    ).scatter_(
+                        -1,
+                        torch.zeros(
+                            size=(batch_size, num_particles) + dims +
+                            (categorical_dim,)
+                        ).long(),
+                        1
+                    )
+                    distribution = torch.distributions.OneHotCategorical(
+                        probs=torch.ones(size=dims + (categorical_dim,))
                     )
                     self.assertEqual(
                         state.log_prob(distribution, value).size(),
