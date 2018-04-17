@@ -8,7 +8,6 @@ import numpy as np
 import torch
 import torch.nn as nn
 
-
 class AutoencoderAlgorithm(enum.Enum):
     VAE = 0  # variational autoencoder (IWAE with 1 particle)
     IWAE = 1  # importance weighted autoencoder
@@ -105,6 +104,7 @@ class AutoEncoder(nn.Module):
         return_log_weight = False
         return_log_weights = False
         return_ancestral_indices=False
+        state.set_global()
 
         if autoencoder_algorithm == AutoencoderAlgorithm.AESMC:
             """
@@ -138,6 +138,7 @@ class AutoEncoder(nn.Module):
                 return_latents = True
                 return_log_weights = True
         elif autoencoder_algorithm == AutoencoderAlgorithm.WAKE_SLEEP:
+            state.set_global(False)
             inference_algorithm = inference.InferenceAlgorithm.WS
             if wake_optimizer is None:
                 raise NotImplementedError('cannot use wake sleep mode without optimizer for model parameters')

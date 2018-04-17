@@ -126,49 +126,62 @@ class TestAutoEncoder(unittest.TestCase):
         batch_size = 10
         num_iterations = 2000
 
-        training_stats = gaussian.TrainingStats(logging_interval=500)
+        test_cases = [(dgm.autoencoder.AutoencoderAlgorithm.IWAE, ae.DiscreteGradientEstimator.REINFORCE),\
+                        (dgm.autoencoder.AutoencoderAlgorithm.IWAE, ae.DiscreteGradientEstimator.VIMCO),\
+                        (dgm.autoencoder.AutoencoderAlgorithm.WAKE_SLEEP, ae.DiscreteGradientEstimator.IGNORE)]
+
+        training_stats = [gaussian.TrainingStats(logging_interval=500) for _ in range(len(test_cases))]
 
         print('\nTraining the \"gaussian\" autoencoder.')
-        dgm.train.train_autoencoder(
-            autoencoder,
-            dgm.train.get_synthetic_dataloader(
-                true_prior, None, true_likelihood, 1, batch_size
-            ),
-            autoencoder_algorithm=dgm.autoencoder.AutoencoderAlgorithm.IWAE,
-            #  autoencoder_algorithm=dgm.autoencoder.AutoencoderAlgorithm.WAKE_SLEEP,
-            num_epochs=1,
-            num_iterations_per_epoch=num_iterations,
-            num_particles=num_particles,
-            wake_sleep_mode=ae.WakeSleepAlgorithm.WW,
-            optimizer_algorithm=torch.optim.SGD,
-            optimizer_kwargs={'lr': 0.01},
-            #  discrete_gradient_estimator=ae.DiscreteGradientEstimator.VIMCO,
-            callback=training_stats
-        )
+        for idx, (algo, estimator) in enumerate(test_cases):
+            print('\nTraining the \"gaussian\" autoencoder.')
+            dgm.train.train_autoencoder(
+                autoencoder,
+                dgm.train.get_synthetic_dataloader(
+                    true_prior, None, true_likelihood, 1, batch_size
+                ),
+                autoencoder_algorithm=algo,
+                num_epochs=1,
+                num_iterations_per_epoch=num_iterations,
+                num_particles=num_particles,
+                wake_sleep_mode=ae.WakeSleepAlgorithm.WW,
+                optimizer_algorithm=torch.optim.SGD,
+                optimizer_kwargs={'lr': 0.01},
+                discrete_gradient_estimator=estimator,
+                callback=training_stats[idx]
+            )
 
-        fig, axs = plt.subplots(5, 1, sharex=True)
-        fig.set_size_inches(5, 8)
+        fig, axs = plt.subplots(5, len(test_cases), sharex=True)
+        fig.set_size_inches(10, 8)
+
+        all_mean = [training_stats[i].prior_mean_history for i in range(len(test_cases))]
+        all_obs = [training_stats[i].obs_std_history for i in range(len(test_cases))]
+        all_mult = [training_stats[i].q_mult_history for i in range(len(test_cases))]
+        all_bias = [training_stats[i].q_bias_history for i in range(len(test_cases))]
+        all_std = [training_stats[i].q_std_history for i in range(len(test_cases))]
+        all_data =  all_mean + all_obs + all_mult + all_bias + all_std
 
         for ax, data, true, ylabel in zip(
-            axs,
-            [
-                training_stats.prior_mean_history,
-                training_stats.obs_std_history,
-                training_stats.q_mult_history,
-                training_stats.q_bias_history,
-                training_stats.q_std_history
-            ],
-            [true_prior_mean, true_obs_std, q_true_mult,
-             q_true_bias, q_true_std],
-            ['$\mu_0$', '$\sigma$', '$a$', '$b$', '$c$']
+            axs.flatten(),
+            all_data,
+            [true_prior_mean for _ in range(len(test_cases))] + \
+            [true_obs_std for _ in range(len(test_cases))] + \
+            [q_true_mult for _ in range(len(test_cases))] + \
+            [q_true_bias for _ in range(len(test_cases))] + \
+            [q_true_std for _ in range(len(test_cases))],
+            ['$\mu_0$', '', '', '$\sigma$', '', '', '$a$', '', '', '$b$', '', '', '$c$', '','']
         ):
-            ax.plot(training_stats.iteration_idx_history, data)
+            ax.plot(training_stats[0].iteration_idx_history, data)
             ax.axhline(true, color='black')
             ax.set_ylabel(ylabel)
             #  self.assertAlmostEqual(data[-1], true, delta=1e-1)
 
-        axs[-1].set_xlabel('Iteration')
-        axs[0].set_title('Gaussian')
+        axs[-1][0].set_xlabel('Iteration')
+        axs[-1][1].set_xlabel('Iteration')
+        axs[-1][2].set_xlabel('Iteration')
+        axs[0][0].set_title('Reinforce')
+        axs[0][1].set_title('VIMCO')
+        axs[0][2].set_title('Wake Wake')
         fig.tight_layout()
 
         filename = './test/test_autoencoder_plots/gaussian.pdf'
@@ -224,7 +237,7 @@ class TestAutoEncoder(unittest.TestCase):
             num_iterations_per_epoch=num_iterations,
             num_particles=num_particles,
             #  wake_sleep_mode=ae.WakeSleepAlgorithm.WW,
-            discrete_gradient_estimator=ae.DiscreteGradientEstimator.VIMCO,
+            discrete_gradient_estimator=ae.DiscreteGradientEstimator.REINFORCE,
             callback=training_stats
         )
 

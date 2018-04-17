@@ -3,6 +3,8 @@ import torch
 import warnings
 
 
+_reparam = None
+
 class DistributionBatchShapeMode(enum.Enum):
     NOT_EXPANDED = 0  # the batch_shape is [dim1, ..., dimN]
     BATCH_EXPANDED = 1  # the batch_shape is [batch_size, dim1, ..., dimN]
@@ -61,6 +63,10 @@ def get_batch_shape_mode(
                 return DistributionBatchShapeMode.NOT_EXPANDED
 
 
+def set_global(reparam=True):
+    global _reparam 
+    _reparam = reparam
+    
 def sample(distribution, batch_size, num_particles):
     """Samples from a distribution given batch size and number of particles.
 
@@ -102,7 +108,7 @@ def sample(distribution, batch_size, num_particles):
                 batch_shape_mode
             ))
 
-        if distribution.has_rsample:
+        if _reparam == True and distribution.has_rsample:
             result = distribution.rsample(sample_shape=sample_shape)
         else:
             result = distribution.sample(sample_shape=sample_shape)
