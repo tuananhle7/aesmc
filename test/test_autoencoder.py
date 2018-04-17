@@ -134,14 +134,15 @@ class TestAutoEncoder(unittest.TestCase):
             dgm.train.get_synthetic_dataloader(
                 true_prior, None, true_likelihood, 1, batch_size
             ),
-            #  autoencoder_algorithm=dgm.autoencoder.AutoencoderAlgorithm.IWAE,
-            autoencoder_algorithm=dgm.autoencoder.AutoencoderAlgorithm.WAKE_SLEEP,
+            autoencoder_algorithm=dgm.autoencoder.AutoencoderAlgorithm.IWAE,
+            #  autoencoder_algorithm=dgm.autoencoder.AutoencoderAlgorithm.WAKE_SLEEP,
             num_epochs=1,
             num_iterations_per_epoch=num_iterations,
             num_particles=num_particles,
             wake_sleep_mode=ae.WakeSleepAlgorithm.WW,
             optimizer_algorithm=torch.optim.SGD,
             optimizer_kwargs={'lr': 0.01},
+            #  discrete_gradient_estimator=ae.DiscreteGradientEstimator.VIMCO,
             callback=training_stats
         )
 
@@ -218,11 +219,12 @@ class TestAutoEncoder(unittest.TestCase):
         dgm.train.train_autoencoder(
             autoencoder,
             dataloader,
-            autoencoder_algorithm=dgm.autoencoder.AutoencoderAlgorithm.WAKE_SLEEP,
+            autoencoder_algorithm=dgm.autoencoder.AutoencoderAlgorithm.IWAE,
             num_epochs=1,
             num_iterations_per_epoch=num_iterations,
             num_particles=num_particles,
-            wake_sleep_mode=ae.WakeSleepAlgorithm.WW,
+            #  wake_sleep_mode=ae.WakeSleepAlgorithm.WW,
+            discrete_gradient_estimator=ae.DiscreteGradientEstimator.VIMCO,
             callback=training_stats
         )
 

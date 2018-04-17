@@ -102,10 +102,10 @@ def sample(distribution, batch_size, num_particles):
                 batch_shape_mode
             ))
 
-        #  if distribution.has_rsample:
-        #      result = distribution.rsample(sample_shape=sample_shape)
-        #  else:
-        result = distribution.sample(sample_shape=sample_shape)
+        if distribution.has_rsample:
+            result = distribution.rsample(sample_shape=sample_shape)
+        else:
+            result = distribution.sample(sample_shape=sample_shape)
 
         if batch_shape_mode == DistributionBatchShapeMode.BATCH_EXPANDED:
             return result.t()

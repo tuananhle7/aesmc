@@ -178,14 +178,12 @@ def infer(
     if inference_algorithm == InferenceAlgorithm.SMC:
         ancestral_indices = []
     log_weights = []
+    log_latents = []
 
     _proposal = proposal.proposal(time=0, observations=observations)
     latent = state.sample(_proposal, batch_size, num_particles)
     proposal_log_prob = state.log_prob(_proposal, latent)
-    try:
-        initial_log_prob = state.log_prob(initial.initial(), latent)
-    except:
-        import pdb; pdb.set_trace()
+    initial_log_prob = state.log_prob(initial.initial(), latent)
     emission_log_prob = state.log_prob(
         emission.emission(latent=latent, time=0),
         state.expand_observation(observations[0], num_particles)
@@ -197,7 +195,7 @@ def infer(
     log_weights.append(
         initial_log_prob + emission_log_prob - proposal_log_prob
     )
-
+    log_latents.append(proposal_log_prob)
     for time in range(1, len(observations)):
         if inference_algorithm == InferenceAlgorithm.SMC:
             ancestral_indices.append(sample_ancestral_index(log_weights[-1]))
@@ -227,6 +225,7 @@ def infer(
         log_weights.append(
             transition_log_prob + emission_log_prob - proposal_log_prob
         )
+        log_latents.append(proposal_log_prob)
 
     if inference_algorithm == InferenceAlgorithm.SMC:
         if return_log_marginal_likelihood:
@@ -296,7 +295,8 @@ def infer(
             'original_latents': original_latents,
             'log_weight': log_weight,
             'log_weights': log_weights,
-            'ancestral_indices': ancestral_indices
+            'ancestral_indices': ancestral_indices,
+            'log_latents': log_latents
         }
 
     else:
@@ -347,7 +347,6 @@ def sleep_loss(
             sampled_obs = _emission[:, i]
             proposal_log_prob = state.log_prob(proposal.proposal(time=0, observations=sampled_obs), _initial)
 
-        import pdb; pdb.set_trace()
         proposal_log_prob = state.log_prob(proposal.proposal(time=0, observations=_emission), _initial)
         previous_latent = _initial.detach()
 
@@ -462,7 +461,8 @@ def sleep_loss(
             'log_weight': None,
             'log_weights': None,
             'ancestral_indices': None,
-            'original_latents': None
+            'original_latents': None,
+            'log_latents': None
         }
     else: 
         raise NotImplementedError('ok')
@@ -609,6 +609,27 @@ def latents_log_prob(
                 )
         return result
 
+
+def control_variate(
+    proposal, 
+    observations,
+    elbo_detached, 
+    num_particles,
+    log_latents,
+    log_weights,
+    non_reparam=False
+):
+    result = torch.zeros(elbo_detached.size())
+    for t in range(len(log_weights)):
+        log_weight = log_weights[t]
+        for i in range(num_particles):
+            log_weight_ = log_weight[:, list(set(range(num_particles)).difference(set([i])))]
+            control_variate = math.logsumexp(
+                torch.cat([log_weight_, torch.mean(log_weight_, dim=1, keepdim=True)], dim=1),
+                dim=1
+                )
+            result = result + (elbo_detached - control_variate.detach()) * log_latents[t][:, i]
+    return result
 
 # NOTE: This function is currently unused; consider removing it.
 def latents_and_ancestral_indices_log_prob(

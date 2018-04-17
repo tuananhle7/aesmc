@@ -13,7 +13,8 @@ class AutoencoderAlgorithm(enum.Enum):
     VAE = 0  # variational autoencoder (IWAE with 1 particle)
     IWAE = 1  # importance weighted autoencoder
     AESMC = 2  # auto-encoding sequential monte carlo
-    WAKE_SLEEP = 3 
+    VIMCO = 3
+    WAKE_SLEEP = 4 
 
 class DiscreteGradientEstimator(enum.Enum):
     IGNORE = 0
@@ -106,6 +107,9 @@ class AutoEncoder(nn.Module):
         return_ancestral_indices=False
 
         if autoencoder_algorithm == AutoencoderAlgorithm.AESMC:
+            """
+            gradient and resampling estimators are incorporated into the loss approprietely below
+            """
             inference_algorithm = inference.InferenceAlgorithm.SMC
             if resampling_gradient_estimator == ResamplingGradientEstimator.IGNORE \
             and discrete_gradient_estimator == DiscreteGradientEstimator.REINFORCE:
@@ -130,6 +134,9 @@ class AutoEncoder(nn.Module):
             inference_algorithm = inference.InferenceAlgorithm.IS
             if discrete_gradient_estimator == DiscreteGradientEstimator.REINFORCE:
                 return_latents = True
+            if discrete_gradient_estimator == DiscreteGradientEstimator.VIMCO:
+                return_latents = True
+                return_log_weights = True
         elif autoencoder_algorithm == AutoencoderAlgorithm.WAKE_SLEEP:
             inference_algorithm = inference.InferenceAlgorithm.WS
             if wake_optimizer is None:
@@ -160,17 +167,31 @@ class AutoEncoder(nn.Module):
             return_log_weights=return_log_weights,
             return_ancestral_indices=return_ancestral_indices
         )
-        return inference_result['log_marginal_likelihood'] + \
-            inference_result['log_marginal_likelihood'].detach() *\
-            (
-                inference.latents_log_prob(
-                    self.proposal,
-                    observations,
-                    inference_result['original_latents'],
-                    inference_result['ancestral_indices'],
-                    non_reparam=True
-                ) + inference.ancestral_indices_log_prob(
-                    inference_result['ancestral_indices'],
-                    inference_result['log_weights']
-                )
-            )
+
+        elbo = inference_result['log_marginal_likelihood']
+        
+        # uses vimco estimator with iwae if specified, otherwise estimator 
+        # becomes the correct model/ancestral estimator or nothing
+        if discrete_gradient_estimator == DiscreteGradientEstimator.VIMCO:
+            estimator = inference.control_variate(
+                self.proposal,
+                observations,
+                inference_result['log_marginal_likelihood'].detach(),
+                num_particles,
+                inference_result['log_latents'],
+                inference_result['log_weights'],
+                non_reparam=True
+            ) 
+        else:
+            estimator = inference.latents_log_prob( 
+                self.proposal,
+                observations,
+                inference_result['original_latents'],
+                inference_result['ancestral_indices'],
+                non_reparam=True
+            ) + inference.ancestral_indices_log_prob(
+                inference_result['ancestral_indices'],
+                inference_result['log_weights']
+            ) * inference_result['log_marginal_likelihood'].detach()
+        return elbo + estimator
+
