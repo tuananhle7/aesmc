@@ -112,15 +112,7 @@ class TestAutoEncoder(unittest.TestCase):
         true_prior = gaussian.Prior(true_prior_mean, prior_std)
         true_likelihood = gaussian.Likelihood(true_obs_std)
 
-        prior = gaussian.Prior(prior_mean_init, prior_std)
-        likelihood = gaussian.Likelihood(obs_std_init)
-        inference_network = gaussian.InferenceNetwork(
-            q_init_mult, q_init_bias, q_init_std
-        )
 
-        autoencoder = ae.AutoEncoder(
-            prior, None, likelihood, inference_network
-        )
 
         num_particles = 2
         batch_size = 10
@@ -134,7 +126,14 @@ class TestAutoEncoder(unittest.TestCase):
 
         print('\nTraining the \"gaussian\" autoencoder.')
         for idx, (algo, estimator) in enumerate(test_cases):
-            print('\nTraining the \"gaussian\" autoencoder.')
+            prior = gaussian.Prior(prior_mean_init, prior_std)
+            likelihood = gaussian.Likelihood(obs_std_init)
+            inference_network = gaussian.InferenceNetwork(
+                q_init_mult, q_init_bias, q_init_std
+            )
+            autoencoder = ae.AutoEncoder(
+                prior, None, likelihood, inference_network
+            )
             dgm.train.train_autoencoder(
                 autoencoder,
                 dgm.train.get_synthetic_dataloader(
@@ -209,70 +208,83 @@ class TestAutoEncoder(unittest.TestCase):
             ) / softmax_multiplier,
             softmax_multiplier=softmax_multiplier
         )
-        likelihood = gmm.Likelihood(mean_multiplier, stds)
-        prior = gmm.Prior(
-            init_mixture_probs_pre_softmax=init_mixture_probs_pre_softmax,
-            softmax_multiplier=softmax_multiplier
-        )
-        inference_network = gmm.InferenceNetwork(num_mixtures)
-
-        autoencoder = dgm.autoencoder.AutoEncoder(
-            prior, None, likelihood, inference_network
-        )
 
         num_particles = 5
         batch_size = 100
         num_iterations = 20000
 
-        training_stats = gmm.TrainingStats(logging_interval=1000)
-        dataloader = dgm.train.get_synthetic_dataloader(
-            true_prior, None, likelihood, 1, batch_size
-        )
+        test_cases = [(dgm.autoencoder.AutoencoderAlgorithm.IWAE, ae.DiscreteGradientEstimator.REINFORCE),\
+                        (dgm.autoencoder.AutoencoderAlgorithm.IWAE, ae.DiscreteGradientEstimator.VIMCO),\
+                        (dgm.autoencoder.AutoencoderAlgorithm.WAKE_SLEEP, ae.DiscreteGradientEstimator.IGNORE)]
 
-        dgm.train.train_autoencoder(
-            autoencoder,
-            dataloader,
-            autoencoder_algorithm=dgm.autoencoder.AutoencoderAlgorithm.IWAE,
-            num_epochs=1,
-            num_iterations_per_epoch=num_iterations,
-            num_particles=num_particles,
-            #  wake_sleep_mode=ae.WakeSleepAlgorithm.WW,
-            discrete_gradient_estimator=ae.DiscreteGradientEstimator.REINFORCE,
-            callback=training_stats
-        )
+        training_stats = [gmm.TrainingStats(logging_interval=1000) for _ in range(len(test_cases))]
+
+
+        for idx, (algo, estimator) in enumerate(test_cases):
+            print('\nTraining the \"gmm\" autoencoder.')
+            likelihood = gmm.Likelihood(mean_multiplier, stds)
+            prior = gmm.Prior(
+                init_mixture_probs_pre_softmax=init_mixture_probs_pre_softmax,
+                softmax_multiplier=softmax_multiplier
+            )
+            inference_network = gmm.InferenceNetwork(num_mixtures)
+
+            autoencoder = dgm.autoencoder.AutoEncoder(
+                prior, None, likelihood, inference_network
+            )
+            dataloader = dgm.train.get_synthetic_dataloader(
+                true_prior, None, likelihood, 1, batch_size
+            )
+            dgm.train.train_autoencoder(
+                autoencoder,
+                dataloader,
+                autoencoder_algorithm=algo,
+                num_epochs=1,
+                num_iterations_per_epoch=num_iterations,
+                num_particles=num_particles,
+                wake_sleep_mode=ae.WakeSleepAlgorithm.WW,
+                discrete_gradient_estimator=estimator,
+                callback=training_stats[idx]
+            )
 
         num_test_data = 100
-        prior_l2, posterior_l2 = gmm.get_stats(
-            training_stats.mixture_probs_history,
-            training_stats.inference_network_state_dict_history,
+        gmm_stats = [ gmm.get_stats(
+            training_stats[i].mixture_probs_history,
+            training_stats[i].inference_network_state_dict_history,
             true_prior, likelihood, num_test_data
-        )
+        ) for i in range(len(test_cases))]
+        priors = [ a for (a, _) in gmm_stats]
+        posteriors = [ b for (_, b) in gmm_stats]
 
         # Plotting
-        fig, axs = plt.subplots(2, 1, sharex=True)
-        fig.set_size_inches(4, 4)
+        fig, axs = plt.subplots(2, len(test_cases), sharex=True)
+        fig.set_size_inches(12, 4)
 
         for idx, (ax, data, ylabel) in enumerate(zip(
-            axs,
-            [prior_l2, posterior_l2],
-            ['$|| p_{\\theta}(z) - p_{\\theta^*}(z) ||$',
-             'Avg. test\n$|| q_\phi(z | x) - p_{\\theta^*}(z | x) ||$']
+            axs.flatten(),
+            priors + posteriors,
+            ['$|| p_{\\theta}(z) - p_{\\theta^*}(z) ||$', '', '',
+             'Avg. test\n$|| q_\phi(z | x) - p_{\\theta^*}(z | x) ||$', '', '']
         )):
-            ax.plot(training_stats.iteration_idx_history, data)
+            ax.plot(training_stats[0].iteration_idx_history, data)
             ax.set_ylabel(ylabel)
             ax.set_yscale('log')
             ax.spines['top'].set_visible(False)
             ax.spines['right'].set_visible(False)
 
-        axs[0].set_title('Gaussian Mixture Model')
-        axs[-1].set_xlabel('Iteration')
+        axs[-1][0].set_xlabel('Iteration')
+        axs[-1][1].set_xlabel('Iteration')
+        axs[-1][2].set_xlabel('Iteration')
+        axs[0][0].set_title('Reinforce')
+        axs[0][1].set_title('VIMCO')
+        axs[0][2].set_title('Wake Wake')
         fig.tight_layout()
         filename = './test/test_autoencoder_plots/gmm.pdf'
         fig.savefig(filename, bbox_inches='tight')
         print('\nPlot saved to {}'.format(filename))
 
-        self.assertAlmostEqual(prior_l2[-1], 0, delta=1e-1)
-        self.assertAlmostEqual(posterior_l2[-1], 0, delta=6e-1)
+        self.assertAlmostEqual(priors[2][-1], 0, delta=1e-1)
+        self.assertAlmostEqual(posteriors[2][-1], 0, delta=6e-1)
 
 
 if __name__ == '__main__':
