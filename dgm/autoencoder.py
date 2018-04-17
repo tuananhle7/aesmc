@@ -179,7 +179,7 @@ class AutoEncoder(nn.Module):
                 observations,
                 inference_result['log_marginal_likelihood'].detach(),
                 num_particles,
-                inference_result['log_latents'],
+                inference_result['latents'],
                 inference_result['log_weights'],
                 non_reparam=True
             ) 

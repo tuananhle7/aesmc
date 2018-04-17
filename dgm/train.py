@@ -94,7 +94,6 @@ def train_autoencoder(
                 if optimize_phi:
                     phi_optimizer.zero_grad()
 
-                #  discrete_gradient_estimator=ae.DiscreteGradientEstimator.VIMCO
                 elbo = autoencoder.forward(
                     observations,
                     num_particles,
@@ -109,7 +108,7 @@ def train_autoencoder(
 
                 loss.backward()
 
-                if optimize_theta:
+                if optimize_theta and autoencoder_algorithm != ae.AutoencoderAlgorithm.WAKE_SLEEP:
                     theta_optimizer.step()
 
                 if optimize_phi:

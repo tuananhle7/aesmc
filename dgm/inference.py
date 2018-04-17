@@ -295,8 +295,8 @@ def infer(
             'original_latents': original_latents,
             'log_weight': log_weight,
             'log_weights': log_weights,
-            'ancestral_indices': ancestral_indices,
-            'log_latents': log_latents
+            'ancestral_indices': ancestral_indices
+            #  'log_latents': log_latents
         }
 
     else:
@@ -461,8 +461,8 @@ def sleep_loss(
             'log_weight': None,
             'log_weights': None,
             'ancestral_indices': None,
-            'original_latents': None,
-            'log_latents': None
+            'original_latents': None
+            #  'log_latents': None
         }
     else: 
         raise NotImplementedError('ok')
@@ -615,20 +615,32 @@ def control_variate(
     observations,
     elbo_detached, 
     num_particles,
-    log_latents,
+    original_latents,
     log_weights,
     non_reparam=False
 ):
     result = torch.zeros(elbo_detached.size())
     for t in range(len(log_weights)):
         log_weight = log_weights[t]
+
+        _proposal = proposal.proposal(
+            previous_latent=(
+                None if (t == 0) else original_latents[t - 1]
+            ),
+            time=t,
+            observations=observations
+        )
+        log_proposal = state.log_prob(
+                _proposal, original_latents[t], non_reparam
+                )
+
         for i in range(num_particles):
             log_weight_ = log_weight[:, list(set(range(num_particles)).difference(set([i])))]
             control_variate = math.logsumexp(
                 torch.cat([log_weight_, torch.mean(log_weight_, dim=1, keepdim=True)], dim=1),
                 dim=1
                 )
-            result = result + (elbo_detached - control_variate.detach()) * log_latents[t][:, i]
+            result = result + (elbo_detached - control_variate.detach()) * log_proposal[:, i]
     return result
 
 # NOTE: This function is currently unused; consider removing it.
