@@ -183,15 +183,19 @@ class AutoEncoder(nn.Module):
                 non_reparam=True
             ) 
         else:
-            estimator = inference.latents_log_prob( 
+            estimator_latents = inference_result['original_latents']  \
+                                if inference_algorithm == inference.InferenceAlgorithm.SMC \
+                                else inference_result['latents']
+            estimator = (inference.latents_log_prob( 
                 self.proposal,
                 observations,
-                inference_result['original_latents'],
+                estimator_latents,
                 inference_result['ancestral_indices'],
                 non_reparam=True
             ) + inference.ancestral_indices_log_prob(
                 inference_result['ancestral_indices'],
                 inference_result['log_weights']
-            ) * inference_result['log_marginal_likelihood'].detach()
+            )) * inference_result['log_marginal_likelihood'].detach()
+            
         return elbo + estimator
 
