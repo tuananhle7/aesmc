@@ -150,7 +150,7 @@ class TestAutoEncoder(unittest.TestCase):
                 callback=training_stats[idx]
             )
 
-        fig, axs = plt.subplots(5, len(test_cases), sharex=True)
+        fig, axs = plt.subplots(5, len(test_cases), sharex=True, sharey=True)
         fig.set_size_inches(10, 8)
 
         all_mean = [training_stats[i].prior_mean_history for i in range(len(test_cases))]
@@ -257,7 +257,7 @@ class TestAutoEncoder(unittest.TestCase):
         posteriors = [ b for (_, b) in gmm_stats]
 
         # Plotting
-        fig, axs = plt.subplots(2, len(test_cases), sharex=True)
+        fig, axs = plt.subplots(2, len(test_cases), sharex=True, sharey=True)
         fig.set_size_inches(12, 4)
 
         for idx, (ax, data, ylabel) in enumerate(zip(
