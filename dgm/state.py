@@ -162,9 +162,9 @@ def log_prob(distribution, value, non_reparam=False):
                 ((value_batch_shape_ndimension - 2) == batch_shape_ndimension)
             ):
                 distribution._validate_sample(value)
-                log_prob = distribution.log_prob(value)
+                logp = distribution.log_prob(value)
             elif (value_batch_shape_ndimension - 1) == batch_shape_ndimension:
-                log_prob = distribution.log_prob(value.t()).t()
+                logp = distribution.log_prob(value.t()).t()
             else:
                 raise RuntimeError(
                     'Incompatible distribution.batch_shape ({}) and '
@@ -172,7 +172,7 @@ def log_prob(distribution, value, non_reparam=False):
                         distribution.batch_shape, value.shape
                     )
                 )
-            return torch.sum(log_prob.view(
+            return torch.sum(logp.view(
                 value.size(0), value.size(1), -1
             ), dim=2)
     else:
