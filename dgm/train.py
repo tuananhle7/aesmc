@@ -51,6 +51,7 @@ def train_autoencoder(
     theta_optimizer_kwargs=None,
     phi_optimizer_algorithm=None,
     phi_optimizer_kwargs=None,
+    process_data_hook=None,
     callback=None
 ):
     if theta_optimizer_algorithm is None:
@@ -84,6 +85,12 @@ def train_autoencoder(
     ]:
         for epoch_idx in range(num_epochs):
             for epoch_iteration_idx, observations in enumerate(dataloader):
+
+                if process_data_hook is not None:
+                    observations = process_data_hook(observations, autoencoder)
+
+                (epoch_idx, epoch_iteration_idx, autoencoder)
+
                 if num_iterations_per_epoch is not None:
                     if epoch_iteration_idx == num_iterations_per_epoch:
                         break
