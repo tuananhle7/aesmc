@@ -286,6 +286,82 @@ class TestAutoEncoder(unittest.TestCase):
         self.assertAlmostEqual(priors[2][-1], 0, delta=1e-1)
         self.assertAlmostEqual(posteriors[2][-1], 0, delta=6e-1)
 
+    def test_lgssm(self):
+        from .models import lgssm
+        print('\nTraining the \"linear Gaussian state space model\"'
+              ' autoencoder.')
+        initial_loc = 0
+        initial_scale = 1
+        true_transition_mult = 0.9
+        init_transition_mult = 0
+        transition_scale = 1
+        true_emission_mult = 1
+        init_emission_mult = 0
+        emission_scale = 0.01
+        num_timesteps = 200
+        num_test_obs = 10
+        test_inference_num_particles = 100
+        saving_interval = 10
+        logging_interval = 10
+        batch_size = 10
+        num_iterations = 500
+        num_particles = 10
+
+        # http://tuananhle.co.uk/notes/optimal-proposal-lgssm.html
+        optimal_proposal_scale_0 = np.sqrt(
+            initial_scale**2 - initial_scale**2 * true_emission_mult /
+            (emission_scale**2 + initial_scale**2 * true_emission_mult**2) *
+            true_emission_mult * initial_scale**2
+        )
+        optimal_proposal_scale_t = np.sqrt(
+            transition_scale**2 - transition_scale**2 * true_emission_mult /
+            (emission_scale**2 + transition_scale**2 * true_emission_mult**2)
+            * true_emission_mult * transition_scale**2
+        )
+        autoencoder_algorithms = [dgm.autoencoder.AutoencoderAlgorithm.IWAE,
+                                  dgm.autoencoder.AutoencoderAlgorithm.AESMC]
+        names = ['IWAE', 'AESMC']
+        dataloader = dgm.train.get_synthetic_dataloader(
+            lgssm.Initial(initial_loc, initial_scale),
+            lgssm.Transition(true_transition_mult, transition_scale),
+            lgssm.Emission(true_emission_mult, emission_scale),
+            num_timesteps, batch_size
+        )
+        fig, axs = plt.subplots(2, 1, sharex=True)
+        for name, autoencoder_algorithm in zip(names, autoencoder_algorithms):
+            training_stats = lgssm.TrainingStats(
+                initial_loc, initial_scale, true_transition_mult,
+                transition_scale, true_emission_mult, emission_scale,
+                num_timesteps, num_test_obs, test_inference_num_particles,
+                saving_interval, logging_interval
+            )
+            autoencoder = dgm.autoencoder.AutoEncoder(
+                lgssm.Initial(initial_loc, initial_scale),
+                lgssm.Transition(init_transition_mult, transition_scale),
+                lgssm.Emission(init_emission_mult, emission_scale),
+                lgssm.Proposal(optimal_proposal_scale_0,
+                               optimal_proposal_scale_t)
+            )
+            dgm.train.train_autoencoder(
+                autoencoder, dataloader, autoencoder_algorithm, 1,
+                num_iterations, num_particles, callback=training_stats
+            )
+            axs[0].plot(training_stats.iteration_idx_history,
+                        training_stats.p_l2_history,
+                        label=name)
+            axs[1].plot(training_stats.iteration_idx_history,
+                        training_stats.q_l2_history,
+                        label=name)
+        axs[0].set_ylabel('$||\\theta - \\theta_{true}||$')
+        axs[1].set_ylabel('Avg. L2 of\nmarginal posterior means')
+        axs[-1].set_xlabel('Iteration')
+        axs[0].legend()
+        fig.tight_layout()
+        filename = './test/test_autoencoder_plots/lgssm.pdf'
+        fig.savefig(filename, bbox_inches='tight')
+        print('\nPlot saved to {}'.format(filename))
+        self.assertTrue(True)
+
 
 if __name__ == '__main__':
     unittest.main()
