@@ -61,6 +61,46 @@ class MyProposalNetwork(dgm.model.ProposalNetwork):
             )
 
 
+class MeanStdAccum():
+    def __init__(self):
+        self.count = 0
+        self.means = None
+        self.M2s = None
+
+    def update(self, new_variables):
+        if self.count == 0:
+            self.count = 1
+            self.means = []
+            self.M2s = []
+            for new_var in new_variables:
+                self.means.append(new_var.data)
+                self.M2s.append(new_var.data.new(new_var.size()).fill_(0))
+        else:
+            self.count = self.count + 1
+            for new_var_idx, new_var in enumerate(new_variables):
+                delta = new_var.data - self.means[new_var_idx]
+                self.means[new_var_idx] = self.means[new_var_idx] + delta / self.count
+                delta_2 = new_var.data - self.means[new_var_idx]
+                self.M2s[new_var_idx] = self.M2s[new_var_idx] + delta * delta_2
+
+    def means_stds(self):
+        if self.count < 2:
+            raise ArithmeticError('Need more than 1 value. Have {}'.format(self.count))
+        else:
+            stds = []
+            for i in range(len(self.means)):
+                stds.append(torch.sqrt(self.M2s[i] / self.count))
+            return self.means, stds
+
+    def avg_of_means_stds(self):
+        means, stds = self.means_stds()
+        num_parameters = np.sum([len(p) for p in means])
+        return (
+            np.sum([torch.sum(p) for p in means]) / num_parameters,
+            np.sum([torch.sum(p) for p in stds]) / num_parameters
+        )
+
+
 class TestAutoEncoder(unittest.TestCase):
     def test_dimensions(self):
         batch_size = 4
@@ -361,6 +401,69 @@ class TestAutoEncoder(unittest.TestCase):
         fig.savefig(filename, bbox_inches='tight')
         print('\nPlot saved to {}'.format(filename))
         self.assertTrue(True)
+
+    def test_vimco(self):
+        from .models import gmm
+        num_mixtures = 2
+        mean_multiplier = 10
+        stds = np.array([5 for _ in range(num_mixtures)])
+        softmax_multiplier = 0.5
+        num_particles = 5
+        batch_size = 20000
+        num_mc_samples = 100
+
+        temp = np.arange(num_mixtures) + 5
+        true_mixture_probs = temp / np.sum(temp)
+        true_prior = gmm.Prior(
+            init_mixture_probs_pre_softmax=np.log(
+                true_mixture_probs
+            ) / softmax_multiplier,
+            softmax_multiplier=softmax_multiplier
+        )
+        likelihood = gmm.Likelihood(mean_multiplier, stds)
+        inference_network = gmm.InferenceNetwork(num_mixtures, hidden_dim=1)
+        autoencoder = dgm.autoencoder.AutoEncoder(
+            true_prior, None, likelihood, inference_network
+        )
+        dataloader = dgm.train.get_synthetic_dataloader(
+            true_prior, None, likelihood, 1, batch_size
+        )
+        discrete_gradient_estimators = [
+            dgm.autoencoder.DiscreteGradientEstimator.REINFORCE,
+            dgm.autoencoder.DiscreteGradientEstimator.VIMCO,
+            dgm.autoencoder.DiscreteGradientEstimator.IGNORE
+        ]
+        observations = next(iter(dataloader))
+        mean_stds = {}
+        for discrete_gradient_estimator in discrete_gradient_estimators:
+            mean_std_accum = MeanStdAccum()
+            for mc_idx in range(num_mc_samples):
+                autoencoder.zero_grad()
+                loss = -torch.mean(autoencoder.forward(
+                    observations, num_particles, dgm.autoencoder.AutoencoderAlgorithm.IWAE,
+                    discrete_gradient_estimator
+                ))
+                loss.backward()
+                mean_std_accum.update([p.grad for p in autoencoder.proposal.parameters()])
+            mean_stds[discrete_gradient_estimator] = mean_std_accum.avg_of_means_stds()
+
+        np.testing.assert_allclose(
+            mean_stds[dgm.autoencoder.DiscreteGradientEstimator.REINFORCE][0],
+            mean_stds[dgm.autoencoder.DiscreteGradientEstimator.VIMCO][0],
+            rtol=1e-1
+        )
+        self.assertTrue(
+            mean_stds[dgm.autoencoder.DiscreteGradientEstimator.REINFORCE][1] >
+            mean_stds[dgm.autoencoder.DiscreteGradientEstimator.VIMCO][1]
+        )
+        self.assertFalse(
+            mean_stds[dgm.autoencoder.DiscreteGradientEstimator.IGNORE][1] ==
+            mean_stds[dgm.autoencoder.DiscreteGradientEstimator.REINFORCE][1]
+        )
+        self.assertFalse(
+            mean_stds[dgm.autoencoder.DiscreteGradientEstimator.IGNORE][1] ==
+            mean_stds[dgm.autoencoder.DiscreteGradientEstimator.VIMCO][1]
+        )
 
 
 if __name__ == '__main__':

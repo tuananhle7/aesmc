@@ -31,22 +31,25 @@ class Likelihood(dgm.model.EmissionDistribution):
         self.stds = torch.Tensor(stds)
 
     def emission(self, latent=None, time=None):
-        return torch.distributions.Normal(
-            loc=self.means[latent],
-            scale=self.stds[latent]
+        return dgm.state.set_batch_shape_mode(
+            torch.distributions.Normal(
+                loc=self.means[latent],
+                scale=self.stds[latent]
+            ),
+            dgm.state.DistributionBatchShapeMode.FULLY_EXPANDED
         )
 
 
 class InferenceNetwork(dgm.model.ProposalNetwork):
-    def __init__(self, num_mixtures):
+    def __init__(self, num_mixtures, hidden_dim=16):
         super(InferenceNetwork, self).__init__()
         self.num_mixtures = num_mixtures
         self.mlp = nn.Sequential(
-            nn.Linear(1, 16),
+            nn.Linear(1, hidden_dim),
             nn.Tanh(),
-            nn.Linear(16, 16),
+            nn.Linear(hidden_dim, hidden_dim),
             nn.Tanh(),
-            nn.Linear(16, self.num_mixtures),
+            nn.Linear(hidden_dim, self.num_mixtures),
             nn.Softmax(dim=1)
         )
 
@@ -54,8 +57,11 @@ class InferenceNetwork(dgm.model.ProposalNetwork):
         return self.mlp(observation.unsqueeze(-1))
 
     def proposal(self, previous_latent=None, time=None, observations=None):
-        return torch.distributions.Categorical(
-            probs=self.probs(observations[0])
+        return dgm.state.set_batch_shape_mode(
+            torch.distributions.Categorical(
+                probs=self.probs(observations[0])
+            ),
+            dgm.state.DistributionBatchShapeMode.BATCH_EXPANDED
         )
 
 
