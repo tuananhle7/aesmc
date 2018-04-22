@@ -6,3 +6,5 @@ from . import inference
 from . import model
 from . import statistics
 from . import train
+from . import predict
+
