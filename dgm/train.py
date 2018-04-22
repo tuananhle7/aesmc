@@ -113,6 +113,7 @@ def train_autoencoder(
                 )
                 loss = -torch.mean(elbo)
 
+
                 loss.backward()
 
                 if optimize_theta and autoencoder_algorithm != ae.AutoencoderAlgorithm.WAKE_SLEEP:
@@ -122,7 +123,7 @@ def train_autoencoder(
                     phi_optimizer.step()
 
                 if callback is not None:
-                    callback(epoch_idx, epoch_iteration_idx, autoencoder)
+                    callback(epoch_idx, epoch_iteration_idx, loss, autoencoder)
     else:
         raise NotImplementedError(
             'autoencoder_algorithm {} not implemented.'.format(

@@ -390,7 +390,10 @@ def sleep_loss(
 
         _proposal = proposal.proposal(time=0, observations=observations)
         latent = state.sample(_proposal, batch_size, num_particles)
-        mixture_latent, proposal_log_prob = mixture_sample_and_log_prob(_proposal, latent, mixture_probs)
+        mixture_latent = latent
+        proposal_log_prob = state.log_prob(_proposal, mixture_latent)
+    	#log_sample = state.log_prob(proposal, sample)
+        #mixture_latent, proposal_log_prob = mixture_sample_and_log_prob(_proposal, latent, mixture_probs)
 
         log_q = state.log_prob(_proposal, mixture_latent)
 
@@ -399,7 +402,7 @@ def sleep_loss(
         initial_log_prob = state.log_prob(initial.initial(), latent)
         emission_log_prob = state.log_prob(
             emission.emission(latent=latent, time=0),
-            expand_observation(observations[0], num_particles)
+            state.expand_observation(observations[0], num_particles)
         )
 
         #  evidence_log_prob = 0 if evidence is None \
@@ -423,8 +426,10 @@ def sleep_loss(
                 observations=observations
             )
             latent = state.sample(_proposal, batch_size, num_particles)
+            mixture_latent = latent
             proposal_log_prob = state.log_prob(_proposal, latent)
-            mixture_latent, proposal_log_prob = mixture_sample_and_log_prob(_proposal, latent, mixture_probs)
+            #proposal_log_prob = state.log_prob(_proposal, latent)
+            #mixture_latent, proposal_log_prob = mixture_sample_and_log_prob(_proposal, latent, mixture_probs)
 
             log_q = state.log_prob(_proposal, latent)
 
@@ -436,14 +441,10 @@ def sleep_loss(
             )
             emission_log_prob = state.log_prob(
                 emission.emission(latent=latent, time=time),
-                expand_observation(observations[time], num_particles)
+                state.expand_observation(observations[time], num_particles)
             )
-
-            evidence_log_prob = 0 if evidence is None \
-                                else state.log_prob(
-                                        evidence.emission(time=time), 
-                                        expand_observation(observations[time], num_particles))
-
+            evidence_log_prob = 0
+            
             latents.append(latent)
 
             log_weights.append(
