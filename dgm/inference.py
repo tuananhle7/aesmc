@@ -295,7 +295,8 @@ def infer(
             'original_latents': original_latents,
             'log_weight': log_weight,
             'log_weights': log_weights,
-            'ancestral_indices': ancestral_indices
+            'ancestral_indices': ancestral_indices,
+            'last_latent': latent
             #  'log_latents': log_latents
         }
 
