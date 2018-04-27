@@ -291,6 +291,7 @@ def infer(
     if inference_algorithm != InferenceAlgorithm.WS:
         return {
             'log_marginal_likelihood': log_marginal_likelihood,
+            'original_elbo': log_marginal_likelihood,
             'latents': latents,
             'original_latents': original_latents,
             'log_weight': log_weight,
@@ -330,6 +331,7 @@ def sleep_loss(
     loss.backward()
     wake_optimizer.step()
     sleep_optimizer.zero_grad()
+    elbo = wake_loss
     #  torch.optim.Adam(proposal.parameters()).zero_grad()
 
     if (wake_sleep_mode == ae.WakeSleepAlgorithm.WS):
@@ -459,6 +461,7 @@ def sleep_loss(
 
         return {
             'log_marginal_likelihood': log_marginal_likelihood,
+            'original_elbo': elbo,
             'latents': None,
             'log_weight': None,
             'log_weights': None,

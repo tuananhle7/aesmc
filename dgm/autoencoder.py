@@ -170,6 +170,7 @@ class AutoEncoder(nn.Module):
         )
 
         elbo = inference_result['log_marginal_likelihood']
+        original_elbo = inference_result['original_elbo']
         
         # uses vimco estimator with iwae if specified, otherwise estimator 
         # becomes the correct model/ancestral estimator or nothing
@@ -198,5 +199,5 @@ class AutoEncoder(nn.Module):
                 inference_result['log_weights']
             )) * inference_result['log_marginal_likelihood'].detach()
             
-        return (elbo, elbo + estimator)
+        return (original_elbo, elbo + estimator)
 
