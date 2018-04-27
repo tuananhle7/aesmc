@@ -138,7 +138,7 @@ class TrainingStats(object):
                 (-1)
             )
 
-    def __call__(self, epoch_idx, epoch_iteration_idx, autoencoder):
+    def __call__(self, epoch_idx, epoch_iteration_idx, elbo, loss, autoencoder):
         if epoch_iteration_idx % self.saving_interval == 0:
             self.p_l2_history.append(np.linalg.norm(
                 np.array([autoencoder.transition.mult.item(),

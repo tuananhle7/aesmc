@@ -101,7 +101,7 @@ def train_autoencoder(
                 if optimize_phi:
                     phi_optimizer.zero_grad()
 
-                elbo = autoencoder.forward(
+                elbo, loss = autoencoder.forward(
                     observations,
                     num_particles,
                     autoencoder_algorithm,
@@ -111,7 +111,8 @@ def train_autoencoder(
                     theta_optimizer,
                     phi_optimizer
                 )
-                loss = -torch.mean(elbo)
+                loss = -torch.mean(loss)
+                elbo = torch.mean(elbo)
 
 
                 loss.backward()
@@ -123,7 +124,7 @@ def train_autoencoder(
                     phi_optimizer.step()
 
                 if callback is not None:
-                    callback(epoch_idx, epoch_iteration_idx, loss, autoencoder)
+                    callback(epoch_idx, epoch_iteration_idx, elbo, loss, autoencoder)
     else:
         raise NotImplementedError(
             'autoencoder_algorithm {} not implemented.'.format(

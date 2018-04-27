@@ -120,7 +120,7 @@ class TestAutoEncoder(unittest.TestCase):
         )
 
         for resampling_gradient_estimator in ae.ResamplingGradientEstimator:
-            elbo = my_auto_encoder.forward(
+            _, elbo = my_auto_encoder.forward(
                 observations=observations,
                 num_particles=num_particles,
                 autoencoder_algorithm=ae.AutoencoderAlgorithm.AESMC,
@@ -345,7 +345,7 @@ class TestAutoEncoder(unittest.TestCase):
         logging_interval = 10
         batch_size = 10
         num_iterations = 500
-        num_particles = 10
+        num_particles = 100
 
         # http://tuananhle.co.uk/notes/optimal-proposal-lgssm.html
         optimal_proposal_scale_0 = np.sqrt(
@@ -439,10 +439,11 @@ class TestAutoEncoder(unittest.TestCase):
             mean_std_accum = MeanStdAccum()
             for mc_idx in range(num_mc_samples):
                 autoencoder.zero_grad()
-                loss = -torch.mean(autoencoder.forward(
+                _, loss = autoencoder.forward(
                     observations, num_particles, dgm.autoencoder.AutoencoderAlgorithm.IWAE,
                     discrete_gradient_estimator
-                ))
+                )
+                loss = -torch.mean(loss)
                 loss.backward()
                 mean_std_accum.update([p.grad for p in autoencoder.proposal.parameters()])
             mean_stds[discrete_gradient_estimator] = mean_std_accum.avg_of_means_stds()

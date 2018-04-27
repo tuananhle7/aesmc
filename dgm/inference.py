@@ -498,7 +498,7 @@ def ancestral_indices_log_prob(ancestral_indices, log_weights):
 
         Note: returns a zero `torch.Tensor` [batch_size] if num_timesteps == 1.
     """
-    if ancestral_indices is None and log_weights is None:
+    if ancestral_indices is None or log_weights is None:
         return 0
 
     assert(len(ancestral_indices) == len(log_weights) - 1)

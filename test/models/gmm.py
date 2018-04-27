@@ -72,7 +72,7 @@ class TrainingStats(object):
         self.iteration_idx_history = []
         self.logging_interval = logging_interval
 
-    def __call__(self, epoch_idx, epoch_iteration_idx, autoencoder):
+    def __call__(self, epoch_idx, epoch_iteration_idx, loss, autoencoder):
         self.mixture_probs_history.append(
             autoencoder.initial.probs().detach().numpy()
         )

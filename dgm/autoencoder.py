@@ -198,5 +198,5 @@ class AutoEncoder(nn.Module):
                 inference_result['log_weights']
             )) * inference_result['log_marginal_likelihood'].detach()
             
-        return elbo + estimator
+        return (elbo, elbo + estimator)
 
