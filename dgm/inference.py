@@ -625,6 +625,8 @@ def control_variate(
     non_reparam=False
 ):
     result = torch.zeros(elbo_detached.size())
+    if elbo_detached.is_cuda:
+        result = result.cuda()
     for t in range(len(log_weights)):
         log_weight = log_weights[t]
 
