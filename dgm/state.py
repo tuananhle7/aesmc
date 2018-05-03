@@ -117,6 +117,8 @@ def sample(distribution, batch_size, num_particles):
             return result.t()
         else:
             return result
+    elif isinstance(distribution, torch.Tensor):
+        return distribution
     else:
         raise AttributeError(
             'distribution must be a dict or a torch.distributions.Distribution'

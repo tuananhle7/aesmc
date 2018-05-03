@@ -211,7 +211,7 @@ def infer(
         latent = state.sample(_proposal, batch_size, num_particles)
         proposal_log_prob = state.log_prob(_proposal, latent)
         transition_log_prob = state.log_prob(
-            transition.transition(previous_latent=previous_latent, time=time),
+            transition.transition(previous_latent=previous_latent, sampled_latent=latent, time=time),
             latent
         )
         emission_log_prob = state.log_prob(
@@ -357,6 +357,7 @@ def sleep_loss(
         samples = _emission.unsqueeze(0).detach()
         #  samples = [_emission.detach()]
         for time in range(1, len(observations)):
+            # this is super fucked...
             _next_latent = state.sample(transition.transition(previous_latent=previous_latent, time=time), batch_size, num_particles)
             _emission = state.sample(emission.emission(latent=_next_latent, time=time), batch_size, num_particles)
             samples = torch.cat((samples, _emission.unsqueeze(0).detach()), 0)
@@ -439,7 +440,7 @@ def sleep_loss(
             log_infs.append(log_q)
 
             transition_log_prob = state.log_prob(
-                transition.transition(previous_latent=previous_latent, time=time),
+                transition.transition(previous_latent=previous_latent, sampled_latent=latent, time=time),
                 latent
             )
             emission_log_prob = state.log_prob(
