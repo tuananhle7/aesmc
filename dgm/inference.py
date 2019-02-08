@@ -24,7 +24,7 @@ def mixture_sample_and_log_prob(proposal, sample, mixture_probs, sample_range=2)
     mixture_samples = torch.gather(samples, dim=1, index=indices.unsqueeze(-1)).squeeze(-1).view(sample.size())
 
     log_sample = state.log_prob(proposal, sample)
-    log_pdfs = torch.cat([log_sample.contiguous().view(-1).unsqueeze(1), -torch.log(torch.Tensor([sample_range]).expand(num_samples)).unsqueeze(1)], dim=1) 
+    log_pdfs = torch.cat([log_sample.contiguous().view(-1).unsqueeze(1), -torch.log(torch.Tensor([sample_range]).expand(num_samples)).unsqueeze(1)], dim=1)
     log_mixture_pdfs = math.logsumexp(log_pdfs + torch.log(mixture_probs), dim=1).view(sample.size())
 
     return mixture_samples, log_mixture_pdfs
@@ -303,13 +303,13 @@ def infer(
 
     else:
         return sleep_loss(
-                log_marginal_likelihood, 
-                wake_sleep_mode, 
-                wake_optimizer, 
+                log_marginal_likelihood,
+                wake_sleep_mode,
+                wake_optimizer,
                 sleep_optimizer,
-                observations, 
-                initial, 
-                transition, 
+                observations,
+                initial,
+                transition,
                 emission,
                 proposal,
                 num_particles)
@@ -364,9 +364,9 @@ def sleep_loss(
             #  samples.append(_emission.detach())
             proposal_log_prob = state.log_prob(proposal.proposal(time=time, observations=samples, previous_latent=previous_latent), _next_latent)
             previous_latent = _next_latent.detach()
-        
+
             log_probs.append(proposal_log_prob)
-        
+
         if return_log_marginal_likelihood:
             log_prob = torch.sum(torch.stack(log_probs, dim=0), dim=0)
             log_marginal_likelihood = math.logsumexp(log_prob, dim=1) - \
@@ -448,7 +448,7 @@ def sleep_loss(
                 state.expand_observation(observations[time], num_particles)
             )
             evidence_log_prob = 0
-            
+
             latents.append(latent)
 
             log_weights.append(
@@ -470,7 +470,7 @@ def sleep_loss(
             'original_latents': None
             #  'log_latents': None
         }
-    else: 
+    else:
         raise NotImplementedError('ok')
 
 # NOTE: This function is currently used to calculate REINFORCE estimator of
@@ -617,9 +617,9 @@ def latents_log_prob(
 
 
 def control_variate(
-    proposal, 
+    proposal,
     observations,
-    elbo_detached, 
+    elbo_detached,
     num_particles,
     original_latents,
     log_weights,

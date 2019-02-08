@@ -13,7 +13,7 @@ class AutoencoderAlgorithm(enum.Enum):
     IWAE = 1  # importance weighted autoencoder
     AESMC = 2  # auto-encoding sequential monte carlo
     VIMCO = 3
-    WAKE_SLEEP = 4 
+    WAKE_SLEEP = 4
 
 class DiscreteGradientEstimator(enum.Enum):
     IGNORE = 0
@@ -27,9 +27,9 @@ class ResamplingGradientEstimator(enum.Enum):
 
 class WakeSleepAlgorithm(enum.Enum):
     IGNORE = 0
-    WS = 1  
+    WS = 1
     WW = 2
-    WSW = 3 
+    WSW = 3
     WSWA = 4
 
 class AutoEncoder(nn.Module):
@@ -117,11 +117,11 @@ class AutoEncoder(nn.Module):
                 return_original_latents = True
             elif resampling_gradient_estimator == ResamplingGradientEstimator.REINFORCE \
             and discrete_gradient_estimator == DiscreteGradientEstimator.IGNORE:
-                return_log_weights = True 
+                return_log_weights = True
                 return_ancestral_indices = True
             elif resampling_gradient_estimator == ResamplingGradientEstimator.REINFORCE \
             and discrete_gradient_estimator == DiscreteGradientEstimator.REINFORCE:
-                return_log_weights = True 
+                return_log_weights = True
                 return_ancestral_indices = True
                 return_original_latents = True
             elif resampling_gradient_estimator == ResamplingGradientEstimator.IGNORE \
@@ -171,8 +171,8 @@ class AutoEncoder(nn.Module):
 
         elbo = inference_result['log_marginal_likelihood']
         original_elbo = inference_result['original_elbo']
-        
-        # uses vimco estimator with iwae if specified, otherwise estimator 
+
+        # uses vimco estimator with iwae if specified, otherwise estimator
         # becomes the correct model/ancestral estimator or nothing
         if discrete_gradient_estimator == DiscreteGradientEstimator.VIMCO:
             estimator = inference.control_variate(
@@ -183,12 +183,12 @@ class AutoEncoder(nn.Module):
                 inference_result['latents'],
                 inference_result['log_weights'],
                 non_reparam=True
-            ) 
+            )
         else:
             estimator_latents = inference_result['original_latents']  \
                                 if inference_algorithm == inference.InferenceAlgorithm.SMC \
                                 else inference_result['latents']
-            estimator = (inference.latents_log_prob( 
+            estimator = (inference.latents_log_prob(
                 self.proposal,
                 observations,
                 estimator_latents,
@@ -198,6 +198,5 @@ class AutoEncoder(nn.Module):
                 inference_result['ancestral_indices'],
                 inference_result['log_weights']
             )) * inference_result['log_marginal_likelihood'].detach()
-            
-        return (original_elbo, elbo + estimator)
 
+        return (original_elbo, elbo + estimator)

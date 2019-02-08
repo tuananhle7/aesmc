@@ -64,9 +64,9 @@ def get_batch_shape_mode(
 
 
 def set_global(reparam=True):
-    global _reparam 
+    global _reparam
     _reparam = reparam
-    
+
 def sample(distribution, batch_size, num_particles):
     """Samples from a distribution given batch size and number of particles.
 

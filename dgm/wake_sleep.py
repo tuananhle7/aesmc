@@ -12,7 +12,7 @@ class WakeSleepAlgorithm(enum.Enum):
     IGNORE = 0
     WS = 1  # wake theta sleep phi
     WW = 2  # wake theta wake phi
-    WSW = 3 
+    WSW = 3
     WSWA = 4
 
 
@@ -120,9 +120,9 @@ def infer(
             #  samples.append(_emission.detach())
             proposal_log_prob = state.log_prob(proposal.proposal(time=time, observations=samples, previous_latent=previous_latent), _next_latent)
             previous_latent = _next_latent.detach()
-        
+
             log_probs.append(proposal_log_prob)
-        
+
         if return_log_marginal_likelihood:
             log_prob = torch.sum(torch.stack(log_probs, dim=0), dim=0)
             log_marginal_likelihood = -math.logsumexp(log_prob, dim=1) - \
@@ -162,7 +162,7 @@ def infer(
 
         evidence_log_prob = 0 if evidence is None \
                             else state.log_prob(
-                                    evidence.emission(time=0), 
+                                    evidence.emission(time=0),
                                     expand_observation(observations[0], num_particles))
 
         log_weights.append(
@@ -199,7 +199,7 @@ def infer(
 
             evidence_log_prob = 0 if evidence is None \
                                 else state.log_prob(
-                                        evidence.emission(time=time), 
+                                        evidence.emission(time=time),
                                         expand_observation(observations[time], num_particles))
 
             if return_latents:
