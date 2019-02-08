@@ -147,7 +147,7 @@ class TrainingStats(object):
                           self.true_emission_mult])
             ))
             inference_result = dgm.inference.infer(
-                dgm.inference.InferenceAlgorithm.IS, None, None, None,
+                dgm.inference.InferenceAlgorithm.IS,
                 self.test_obs, self.initial, self.true_transition,
                 self.true_emission, autoencoder.proposal,
                 self.test_inference_num_particles

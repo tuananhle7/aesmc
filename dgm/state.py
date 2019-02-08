@@ -3,8 +3,6 @@ import torch
 import warnings
 
 
-_reparam = None
-
 class DistributionBatchShapeMode(enum.Enum):
     NOT_EXPANDED = 0  # the batch_shape is [dim1, ..., dimN]
     BATCH_EXPANDED = 1  # the batch_shape is [batch_size, dim1, ..., dimN]
@@ -20,9 +18,7 @@ def set_batch_shape_mode(distribution, batch_shape_mode):
     return distribution
 
 
-def get_batch_shape_mode(
-    distribution, batch_size=None, num_particles=None
-):
+def get_batch_shape_mode(distribution, batch_size=None, num_particles=None):
     """Returns the DistributionBatchShapeMode property of a distribution.
     If the property is not set explicitly, it is inferred implicitly."""
 
@@ -63,10 +59,6 @@ def get_batch_shape_mode(
                 return DistributionBatchShapeMode.NOT_EXPANDED
 
 
-def set_global(reparam=True):
-    global _reparam
-    _reparam = reparam
-
 def sample(distribution, batch_size, num_particles):
     """Samples from a distribution given batch size and number of particles.
 
@@ -89,14 +81,11 @@ def sample(distribution, batch_size, num_particles):
     """
 
     if isinstance(distribution, dict):
-        return {
-            k: sample(v, batch_size, num_particles)
-            for k, v in distribution.items()
-        }
+        return {k: sample(v, batch_size, num_particles)
+                for k, v in distribution.items()}
     elif isinstance(distribution, torch.distributions.Distribution):
         batch_shape_mode = get_batch_shape_mode(
-            distribution, batch_size, num_particles
-        )
+            distribution, batch_size, num_particles)
         if batch_shape_mode == DistributionBatchShapeMode.NOT_EXPANDED:
             sample_shape = (batch_size, num_particles,)
         elif batch_shape_mode == DistributionBatchShapeMode.BATCH_EXPANDED:
@@ -105,16 +94,15 @@ def sample(distribution, batch_size, num_particles):
             sample_shape = ()
         else:
             raise ValueError('batch_shape_mode {} not supported'.format(
-                batch_shape_mode
-            ))
+                batch_shape_mode))
 
-        if _reparam == True and distribution.has_rsample:
+        if distribution.has_rsample:
             result = distribution.rsample(sample_shape=sample_shape)
         else:
             result = distribution.sample(sample_shape=sample_shape)
 
         if batch_shape_mode == DistributionBatchShapeMode.BATCH_EXPANDED:
-            return result.t()
+            return result.transpose(0, 1)
         else:
             return result
     elif isinstance(distribution, torch.Tensor):
@@ -126,6 +114,7 @@ def sample(distribution, batch_size, num_particles):
         )
 
 
+# what's non_reparam for?
 def log_prob(distribution, value, non_reparam=False):
     """Log probability of value under distribution.
 
@@ -166,7 +155,8 @@ def log_prob(distribution, value, non_reparam=False):
                 distribution._validate_sample(value)
                 logp = distribution.log_prob(value)
             elif (value_batch_shape_ndimension - 1) == batch_shape_ndimension:
-                logp = distribution.log_prob(value.t()).t()
+                logp = distribution.log_prob(
+                    value.transpose(0, 1)).transpose(0, 1)
             else:
                 raise RuntimeError(
                     'Incompatible distribution.batch_shape ({}) and '
@@ -195,10 +185,8 @@ def resample(value, ancestral_index):
         (or [batch_size, num_particles]) or `dict` thereof
     """
     if isinstance(value, dict):
-        return {
-            k: resample(v, ancestral_index)
-            for k, v in value.items()
-        }
+        return {k: resample(v, ancestral_index)
+                for k, v in value.items()}
     elif torch.is_tensor(value):
         assert(ancestral_index.size() == value.size()[:2])
         ancestral_index_unsqueezed = ancestral_index
@@ -207,16 +195,11 @@ def resample(value, ancestral_index):
             ancestral_index_unsqueezed = \
                 ancestral_index_unsqueezed.unsqueeze(-1)
 
-        return torch.gather(
-            value,
-            dim=1,
-            index=ancestral_index_unsqueezed.expand_as(value)
-        )
+        return torch.gather(value, dim=1,
+                            index=ancestral_index_unsqueezed.expand_as(value))
     else:
         raise AttributeError(
-            'value must be a dict or a torch.Tensor.\
-            Got: {}'.format(value)
-        )
+            'value must be a dict or a torch.Tensor. Got: {}'.format(value))
 
 
 def expand_observation(observation, num_particles):
@@ -229,14 +212,11 @@ def expand_observation(observation, num_particles):
         `dict` thereof
     """
     if isinstance(observation, dict):
-        return {
-            k: expand_observation(v, num_particles)
-            for k, v in observation.items()
-        }
+        return {k: expand_observation(v, num_particles)
+                for k, v in observation.items()}
     else:
         batch_size = observation.size(0)
         other_sizes = list(observation.size()[1:])
 
         return observation.unsqueeze(1).expand(
-            *([batch_size, num_particles] + other_sizes)
-        )
+            *([batch_size, num_particles] + other_sizes))

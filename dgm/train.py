@@ -42,101 +42,40 @@ def train_autoencoder(
     num_epochs,
     num_iterations_per_epoch=None,
     num_particles=None,
-    wake_sleep_mode=ae.WakeSleepAlgorithm.IGNORE,
-    discrete_gradient_estimator=ae.DiscreteGradientEstimator.REINFORCE,
-    resampling_gradient_estimator=ae.ResamplingGradientEstimator.IGNORE,
     optimizer_algorithm=torch.optim.Adam,
     optimizer_kwargs={},
-    theta_optimizer_algorithm=None,
-    theta_optimizer_kwargs=None,
-    phi_optimizer_algorithm=None,
-    phi_optimizer_kwargs=None,
-    process_data_hook=None,
     callback=None
 ):
-    if theta_optimizer_algorithm is None:
-        theta_optimizer_algorithm = optimizer_algorithm
-        theta_optimizer_kwargs = optimizer_kwargs
-
-    if phi_optimizer_algorithm is None:
-        phi_optimizer_algorithm = optimizer_algorithm
-        phi_optimizer_kwargs = optimizer_kwargs
-
-    theta_parameters = get_theta_parameters(autoencoder)
-    phi_parameters = get_phi_parameters(autoencoder)
-
-    optimize_theta = theta_parameters is not None
-    optimize_phi = phi_parameters is not None
-
-    if optimize_theta:
-        theta_optimizer = theta_optimizer_algorithm(
-            theta_parameters, **theta_optimizer_kwargs
-        )
-    if optimize_phi:
-        phi_optimizer = phi_optimizer_algorithm(
-            phi_parameters, **phi_optimizer_kwargs
-        )
-
-    if autoencoder_algorithm in [
-        ae.AutoencoderAlgorithm.VAE,
-        ae.AutoencoderAlgorithm.IWAE,
-        ae.AutoencoderAlgorithm.AESMC,
-        ae.AutoencoderAlgorithm.WAKE_SLEEP
-    ]:
+    optimizer = optimizer_algorithm(autoencoder.parameters(),
+                                    **optimizer_kwargs)
+    if autoencoder_algorithm in [ae.AutoencoderAlgorithm.VAE,
+                                 ae.AutoencoderAlgorithm.IWAE,
+                                 ae.AutoencoderAlgorithm.AESMC]:
         for epoch_idx in range(num_epochs):
             for epoch_iteration_idx, observations in enumerate(dataloader):
-
-                if process_data_hook is not None:
-                    observations = process_data_hook(observations, autoencoder)
-
-                (epoch_idx, epoch_iteration_idx, autoencoder)
-
                 if num_iterations_per_epoch is not None:
                     if epoch_iteration_idx == num_iterations_per_epoch:
                         break
-
-                if optimize_theta:
-                    theta_optimizer.zero_grad()
-
-                if optimize_phi:
-                    phi_optimizer.zero_grad()
-
-                elbo, loss = autoencoder.forward(
-                    observations,
-                    num_particles,
-                    autoencoder_algorithm,
-                    discrete_gradient_estimator,
-                    resampling_gradient_estimator,
-                    wake_sleep_mode,
-                    theta_optimizer,
-                    phi_optimizer
-                )
-                loss = -torch.mean(loss)
+                optimizer.zero_grad()
+                elbo = autoencoder.forward(observations, num_particles,
+                                           autoencoder_algorithm)
                 elbo = torch.mean(elbo)
-
-
+                loss = -elbo
                 loss.backward()
-
-                if optimize_theta and autoencoder_algorithm != ae.AutoencoderAlgorithm.WAKE_SLEEP:
-                    theta_optimizer.step()
-
-                if optimize_phi:
-                    phi_optimizer.step()
+                optimizer.step()
 
                 if callback is not None:
-                    callback(epoch_idx, epoch_iteration_idx, elbo, loss, autoencoder)
+                    callback(epoch_idx, epoch_iteration_idx, elbo, loss,
+                             autoencoder)
     else:
         raise NotImplementedError(
             'autoencoder_algorithm {} not implemented.'.format(
-                autoencoder_algorithm
-            )
-        )
+                autoencoder_algorithm))
 
 
 class SyntheticDataset(torch.utils.data.Dataset):
-    def __init__(
-        self, initial, transition, emission, num_timesteps, batch_size
-    ):
+    def __init__(self, initial, transition, emission, num_timesteps,
+                 batch_size):
         self.initial = initial
         self.transition = transition
         self.emission = emission

@@ -193,9 +193,9 @@ class TestSample(unittest.TestCase):
     def test_sample_values(self):
         for batch_size, num_particles in [(2, 2), (2, 3)]:
             batch_shape = (batch_size, num_particles)
-            loc = 100 * torch.arange(batch_size * num_particles).view(
-                batch_size, num_particles
-            )
+            loc = 100 * torch.arange(
+                batch_size * num_particles, dtype=torch.float
+            ).view(batch_size, num_particles)
             scale = torch.ones(size=batch_shape)
             distribution = torch.distributions.Normal(loc=loc, scale=scale)
             for batch_shape_mode, expanded_dimensions in [
@@ -270,30 +270,24 @@ class TestLogProb(unittest.TestCase):
                     dims
                 ]):
                     value = torch.zeros(
-                        size=(batch_size, num_particles) + dims
-                    )
-                    loc = 10 * torch.arange(int(np.prod(batch_shape))).view(
-                        size=batch_shape
-                    )
+                        size=(batch_size, num_particles) + dims)
+                    loc = 10 * torch.arange(
+                        int(np.prod(batch_shape)), dtype=torch.float
+                    ).view(size=batch_shape)
                     scale = 1
-                    distribution = torch.distributions.Normal(
-                        loc=loc, scale=scale
-                    )
+                    distribution = torch.distributions.Normal(loc, scale)
                     if idx == 0:
                         expanded_loc = loc
                     elif idx == 1:
                         expanded_loc = loc.unsqueeze(1).expand(
-                            size=(batch_size, num_particles) + dims
-                        )
+                            size=(batch_size, num_particles) + dims)
                     else:
                         expanded_loc = loc.unsqueeze(0).unsqueeze(0).expand(
-                            size=(batch_size, num_particles) + dims
-                        )
+                            size=(batch_size, num_particles) + dims)
                     expanded_scale = scale
                     expanded_distribution = torch.distributions.Normal(
                         loc=expanded_loc,
-                        scale=expanded_scale
-                    )
+                        scale=expanded_scale)
                     np.testing.assert_allclose(
                         state.log_prob(distribution, value).numpy(),
                         torch.sum(expanded_distribution.log_prob(value).view(
@@ -371,39 +365,39 @@ class TestLogProb(unittest.TestCase):
 #         )
 #
 #
-# class TestResample(unittest.TestCase):
-#     def test_dimensions(self):
-#         ancestral_index = torch.zeros(3, 2).long()
-#         value = torch.rand(3, 2)
-#         self.assertEqual(
-#             value.size(),
-#             state.resample(value, ancestral_index).size()
-#         )
-#
-#         value = torch.rand(3, 2, 4, 5)
-#         self.assertEqual(
-#             value.size(),
-#             state.resample(value, ancestral_index).size()
-#         )
-#
-#     def test_small(self):
-#         ancestral_index = torch.LongTensor([
-#             [1, 2, 0],
-#             [0, 0, 1]
-#         ])
-#         value = torch.Tensor([
-#             [1, 2, 3],
-#             [4, 5, 6]
-#         ])
-#         resampled_value = torch.Tensor([
-#             [2, 3, 1],
-#             [4, 4, 5]
-#         ])
-#
-#         self.assertTrue(torch.equal(
-#             state.resample(value, ancestral_index),
-#             resampled_value
-#         ))
+class TestResample(unittest.TestCase):
+    def test_dimensions(self):
+        ancestral_index = torch.zeros(3, 2).long()
+        value = torch.rand(3, 2)
+        self.assertEqual(
+            value.size(),
+            state.resample(value, ancestral_index).size()
+        )
+
+        value = torch.rand(3, 2, 4, 5)
+        self.assertEqual(
+            value.size(),
+            state.resample(value, ancestral_index).size()
+        )
+
+    def test_small(self):
+        ancestral_index = torch.LongTensor([
+            [1, 2, 0],
+            [0, 0, 1]
+        ])
+        value = torch.Tensor([
+            [1, 2, 3],
+            [4, 5, 6]
+        ])
+        resampled_value = torch.Tensor([
+            [2, 3, 1],
+            [4, 4, 5]
+        ])
+
+        self.assertTrue(torch.equal(
+            state.resample(value, ancestral_index),
+            resampled_value
+        ))
 
 
 class TestExpandObservation(unittest.TestCase):

@@ -31,7 +31,7 @@ class InitialNetwork(nn.Module, InitialDistribution):
 class TransitionDistribution():
     """Base class for transition distribution"""
 
-    def transition(self, previous_latent=None, sampled_latent=None, time=None):
+    def transition(self, previous_latent=None, time=None):
         """Returns `torch.distributions.Distribution` or a `dict` thereof."""
         raise NotImplementedError
 

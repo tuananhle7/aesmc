@@ -7,8 +7,8 @@ import torch.nn as nn
 class Prior(dgm.model.InitialNetwork):
     def __init__(self, init_mean, std):
         super(Prior, self).__init__()
-        self.mean = nn.Parameter(torch.Tensor([init_mean]).squeeze())
-        self.std = std
+        self.mean = nn.Parameter(torch.tensor(init_mean, dtype=torch.float))
+        self.std = torch.tensor(std, dtype=torch.float)
 
     def initial(self):
         return torch.distributions.Normal(loc=self.mean, scale=self.std)
@@ -18,29 +18,25 @@ class Likelihood(dgm.model.EmissionNetwork):
     def __init__(self, init_std):
         super(Likelihood, self).__init__()
         self.log_std = nn.Parameter(
-            torch.log(torch.Tensor([init_std])).squeeze()
-        )
+            torch.log(torch.tensor(init_std, dtype=torch.float)))
 
     def emission(self, latent=None, time=None):
         return torch.distributions.Normal(
-            loc=latent, scale=torch.exp(self.log_std)
-        )
+            loc=latent, scale=torch.exp(self.log_std))
 
 
 class InferenceNetwork(dgm.model.ProposalNetwork):
     def __init__(self, init_mult, init_bias, init_std):
         super(InferenceNetwork, self).__init__()
-        self.mult = nn.Parameter(torch.Tensor([init_mult]).squeeze())
-        self.bias = nn.Parameter(torch.Tensor([init_bias]).squeeze())
+        self.mult = nn.Parameter(torch.tensor(init_mult, dtype=torch.float))
+        self.bias = nn.Parameter(torch.tensor(init_bias, dtype=torch.float))
         self.log_std = nn.Parameter(
-            torch.log(torch.Tensor([init_std])).squeeze()
-        )
+            torch.log(torch.tensor(init_std, dtype=torch.float)))
 
     def proposal(self, previous_latent=None, time=None, observations=None):
         return torch.distributions.Normal(
             loc=self.mult * observations[0] + self.bias,
-            scale=torch.exp(self.log_std)
-        )
+            scale=torch.exp(self.log_std))
 
 
 def get_proposal_params(prior_mean, prior_std, obs_std):
