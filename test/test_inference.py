@@ -1,5 +1,4 @@
 import dgm.inference as inference
-import dgm.model as model
 import dgm.state as state
 import dgm.statistics as stats
 import matplotlib.pyplot as plt
@@ -85,64 +84,53 @@ class TestSampleAncestralIndex(unittest.TestCase):
         )
 
 
-class MyInitialDistribution(model.InitialDistribution):
+class MyInitialDistribution:
     def __init__(self, initial_mean, initial_variance):
         self.initial_mean = initial_mean
         self.initial_variance = initial_variance
 
-    def initial(self):
-        return torch.distributions.Normal(
-            loc=self.initial_mean,
-            scale=np.sqrt(self.initial_variance)
-        )
+    def __call__(self):
+        return torch.distributions.Normal(loc=self.initial_mean,
+                                          scale=np.sqrt(self.initial_variance))
 
 
-class MyTransitionDistribution(model.TransitionDistribution):
-    def __init__(
-        self, transition_matrix, transition_covariance, transition_offset
-    ):
+class MyTransitionDistribution:
+    def __init__(self, transition_matrix, transition_covariance,
+                 transition_offset):
         self.transition_matrix = transition_matrix
         self.transition_covariance = transition_covariance
         self.transition_offset = transition_offset
 
-    def transition(self, previous_latent=None, time=None):
+    def __call__(self, previous_latent=None, time=None):
         return torch.distributions.Normal(
             loc=previous_latent * self.transition_matrix +
             self.transition_offset,
-            scale=np.sqrt(self.transition_covariance)
-        )
+            scale=np.sqrt(self.transition_covariance))
 
 
-class MyEmissionDistribution(model.EmissionDistribution):
-    def __init__(
-        self, emission_matrix, emission_covariance, emission_offset
-    ):
+class MyEmissionDistribution:
+    def __init__(self, emission_matrix, emission_covariance, emission_offset):
         self.emission_matrix = emission_matrix
         self.emission_covariance = emission_covariance
         self.emission_offset = emission_offset
 
-    def emission(self, latent=None, time=None):
+    def __call__(self, latent=None, time=None):
         return torch.distributions.Normal(
             loc=latent * self.emission_matrix +
             self.emission_offset,
-            scale=np.sqrt(self.emission_covariance)
-        )
+            scale=np.sqrt(self.emission_covariance))
 
 
-class MyProposalDistribution(model.ProposalDistribution):
-    def __init__(
-        self, initial_mean, initial_variance, transition_matrix,
-        transition_covariance, transition_offset
-    ):
+class MyProposalDistribution:
+    def __init__(self, initial_mean, initial_variance, transition_matrix,
+                 transition_covariance, transition_offset):
         self.initial_mean = initial_mean
         self.initial_variance = initial_variance
         self.transition_matrix = transition_matrix
         self.transition_covariance = transition_covariance
         self.transition_offset = transition_offset
 
-    def proposal(
-        self, previous_latent=None, time=None, observations=None
-    ):
+    def __call__(self, previous_latent=None, time=None, observations=None):
         if time == 0:
             return torch.distributions.Normal(
                 loc=self.initial_mean,
@@ -448,22 +436,18 @@ class TestAncestralIndicesLogProb(unittest.TestCase):
         )
 
 
-class MyProposalNetwork(model.ProposalNetwork):
+class MyProposalNetwork(nn.Module):
     def __init__(self, proposal_multiplier):
         super(MyProposalNetwork, self).__init__()
         self.multiplier = nn.Parameter(torch.Tensor([proposal_multiplier]))
         self.std = 1
 
-    def proposal(
-        self, previous_latent=None, time=None, observations=None
-    ):
+    def forward(self, previous_latent=None, time=None, observations=None):
         if time == 0:
             return torch.distributions.Normal(loc=0, scale=1)
         else:
             return torch.distributions.Normal(
-                loc=self.multiplier * previous_latent,
-                scale=self.std
-            )
+                loc=self.multiplier * previous_latent, scale=self.std)
 
 
 class TestLatentsLogProb(unittest.TestCase):

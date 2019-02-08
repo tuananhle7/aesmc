@@ -7,58 +7,50 @@ import torch.nn as nn
 import unittest
 
 
-class MyInitialNetwork(dgm.model.InitialNetwork):
+class MyInitialNetwork(nn.Module):
     def __init__(self, initial_mean):
         super(MyInitialNetwork, self).__init__()
         self.mean = nn.Parameter(torch.Tensor([initial_mean]))
         self.std = 1
 
-    def initial(self):
+    def __call__(self):
         return torch.distributions.Normal(loc=self.mean, scale=self.std)
 
 
-class MyTransitionNetwork(dgm.model.TransitionNetwork):
+class MyTransitionNetwork(nn.Module):
     def __init__(self, transition_multiplier):
         super(MyTransitionNetwork, self).__init__()
         self.multiplier = nn.Parameter(torch.Tensor([transition_multiplier]))
         self.std = 1
 
-    def transition(self, previous_latent=None, time=None):
+    def __call__(self, previous_latent=None, time=None):
         return torch.distributions.Normal(
-            loc=self.multiplier * previous_latent,
-            scale=self.std
-        )
+            loc=self.multiplier * previous_latent, scale=self.std)
 
 
-class MyEmissionNetwork(dgm.model.EmissionNetwork):
+class MyEmissionNetwork(nn.Module):
     def __init__(self, emission_multiplier):
         super(MyEmissionNetwork, self).__init__()
         self.multiplier = nn.Parameter(torch.Tensor([emission_multiplier]))
         self.std = 1
 
-    def emission(self, latent=None, time=None):
-        return torch.distributions.Normal(
-            loc=self.multiplier * latent,
-            scale=self.std
-        )
+    def __call__(self, latent=None, time=None):
+        return torch.distributions.Normal(loc=self.multiplier * latent,
+                                          scale=self.std)
 
 
-class MyProposalNetwork(dgm.model.ProposalNetwork):
+class MyProposalNetwork(nn.Module):
     def __init__(self, proposal_multiplier):
         super(MyProposalNetwork, self).__init__()
         self.multiplier = nn.Parameter(torch.Tensor([proposal_multiplier]))
         self.std = 1
 
-    def proposal(
-        self, previous_latent=None, time=None, observations=None
-    ):
+    def forward(self, previous_latent=None, time=None, observations=None):
         if time == 0:
             return torch.distributions.Normal(loc=0, scale=1)
         else:
             return torch.distributions.Normal(
-                loc=self.multiplier * previous_latent,
-                scale=self.std
-            )
+                loc=self.multiplier * previous_latent, scale=self.std)
 
 
 class MeanStdAccum():
@@ -220,7 +212,7 @@ class TestAutoEncoder(unittest.TestCase):
         saving_interval = 10
         logging_interval = 10
         batch_size = 10
-        num_iterations = 500
+        num_iterations = 20 # 500
         num_particles = 100
 
         # http://tuananhle.co.uk/notes/optimal-proposal-lgssm.html

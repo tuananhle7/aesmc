@@ -351,14 +351,12 @@ def sample_from_prior(
 
     for time in range(num_timesteps):
         if time == 0:
-            latents.append(state.sample(initial.initial(), batch_size, 1))
+            latents.append(state.sample(initial(), batch_size, 1))
         else:
-            latents.append(state.sample(transition.transition(
-                previous_latent=latents[-1], time=time
-            ), batch_size, 1))
-        observations.append(state.sample(emission.emission(
-            latent=latents[-1], time=time
-        ), batch_size, 1))
+            latents.append(state.sample(transition(
+                previous_latent=latents[-1], time=time), batch_size, 1))
+        observations.append(state.sample(emission(
+            latent=latents[-1], time=time), batch_size, 1))
 
     def squeeze_num_particles(value):
         if isinstance(value, dict):

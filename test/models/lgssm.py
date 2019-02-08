@@ -7,45 +7,41 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 
-class Initial(dgm.model.InitialDistribution):
+class Initial:
     def __init__(self, loc, scale):
-        super(Initial, self).__init__()
         self.loc = loc
         self.scale = scale
 
-    def initial(self):
+    def __call__(self):
         return torch.distributions.Normal(self.loc, self.scale)
 
 
-class Transition(dgm.model.TransitionNetwork):
+class Transition(nn.Module):
     def __init__(self, init_mult, scale):
         super(Transition, self).__init__()
         self.mult = nn.Parameter(torch.Tensor([init_mult]).squeeze())
         self.scale = scale
 
-    def transition(self, previous_latent=None, time=None):
+    def forward(self, previous_latent=None, time=None):
         return dgm.state.set_batch_shape_mode(
             torch.distributions.Normal(
-                self.mult * previous_latent, self.scale
-            ),
-            dgm.state.DistributionBatchShapeMode.FULLY_EXPANDED
-        )
+                self.mult * previous_latent, self.scale),
+            dgm.state.DistributionBatchShapeMode.FULLY_EXPANDED)
 
 
-class Emission(dgm.model.EmissionNetwork):
+class Emission(nn.Module):
     def __init__(self, init_mult, scale):
         super(Emission, self).__init__()
         self.mult = nn.Parameter(torch.Tensor([init_mult]).squeeze())
         self.scale = scale
 
-    def emission(self, latent=None, time=None):
+    def forward(self, latent=None, time=None):
         return dgm.state.set_batch_shape_mode(
             torch.distributions.Normal(self.mult * latent, self.scale),
-            dgm.state.DistributionBatchShapeMode.FULLY_EXPANDED
-        )
+            dgm.state.DistributionBatchShapeMode.FULLY_EXPANDED)
 
 
-class Proposal(dgm.model.ProposalNetwork):
+class Proposal(nn.Module):
     def __init__(self, scale_0, scale_t):
         super(Proposal, self).__init__()
         self.scale_0 = scale_0
@@ -53,15 +49,13 @@ class Proposal(dgm.model.ProposalNetwork):
         self.lin_0 = nn.Linear(1, 1)
         self.lin_t = nn.Linear(2, 1)
 
-    def proposal(self, previous_latent=None, time=None, observations=None):
+    def forward(self, previous_latent=None, time=None, observations=None):
         if time == 0:
             return dgm.state.set_batch_shape_mode(
                 torch.distributions.Normal(
                     loc=self.lin_0(observations[0].unsqueeze(-1)).squeeze(-1),
-                    scale=self.scale_0
-                ),
-                dgm.state.DistributionBatchShapeMode.BATCH_EXPANDED
-            )
+                    scale=self.scale_0),
+                dgm.state.DistributionBatchShapeMode.BATCH_EXPANDED)
         else:
             num_particles = previous_latent.shape[1]
             return dgm.state.set_batch_shape_mode(
@@ -73,10 +67,8 @@ class Proposal(dgm.model.ProposalNetwork):
                          )],
                         dim=2
                     ).view(-1, 2)).squeeze(-1).view(-1, num_particles),
-                    scale=self.scale_0
-                ),
-                dgm.state.DistributionBatchShapeMode.FULLY_EXPANDED
-            )
+                    scale=self.scale_0),
+                dgm.state.DistributionBatchShapeMode.FULLY_EXPANDED)
 
 
 def lgssm_true_posterior(
@@ -98,8 +90,7 @@ def lgssm_true_posterior(
         transition_covariance=[[transition_scale**2]],
         observation_matrices=[[emission_mult]],
         observation_offsets=[emission_bias],
-        observation_covariance=[[emission_scale**2]]
-    )
+        observation_covariance=[[emission_scale**2]])
 
     return kf.smooth(observations)
 

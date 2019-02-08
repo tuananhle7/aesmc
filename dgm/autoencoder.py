@@ -18,11 +18,28 @@ class AutoEncoder(nn.Module):
     def __init__(self, initial, transition, emission, proposal):
         """Initialize AutoEncoder object.
 
-        input:
-            initial: dgm.model.InitialDistribution object
-            transition: dgm.model.TransitionDistribution object
-            emission: dgm.model.EmissionDistribution object
-            proposal: dgm.model.ProposalDistribution object
+        Args:
+            initial: a callable object (function or nn.Module) which has no
+                arguments and returns a torch.distributions.Distribution or a
+                dict thereof
+            transition: a callable object (function or nn.Module) with
+                signature:
+                Args:
+                    previous_latent: tensor [batch_size, num_particles, ...]
+                    time: int
+                Returns: torch.distributions.Distribution or a dict thereof
+            emission: a callable object (function or nn.Module) with signature:
+                Args:
+                    latent: tensor [batch_size, num_particles, ...]
+                    time: int
+                Returns: torch.distributions.Distribution or a dict thereof
+            proposal: a callable object (function or nn.Module) with signature:
+                Args:
+                    previous_latent: tensor [batch_size, num_particles, ...]
+                    time: int
+                    observations: list where each element is a tensor
+                        [batch_size, ...] or a dict thereof
+                Returns: torch.distributions.Distribution or a dict thereof
         """
         super(AutoEncoder, self).__init__()
         self.initial = initial
@@ -30,32 +47,20 @@ class AutoEncoder(nn.Module):
         self.emission = emission
         self.proposal = proposal
 
-    def forward(
-        self,
-        observations,
-        num_particles=2,
-        autoencoder_algorithm=AutoencoderAlgorithm.IWAE
-    ):
+    def forward(self, observations, num_particles=2,
+                autoencoder_algorithm=AutoencoderAlgorithm.IWAE):
         """Evaluate a computation graph whose gradient is an estimator for the
         gradient of the ELBO.
 
-        input:
-            observations: list of `torch.Tensor`s [batch_size, dim1, ..., dimN]
-                or `dict`s thereof
+        Args:
+            observations: list of tensors [batch_size, dim1, ..., dimN] or
+                dicts thereof
             num_particles: int
             autoencoder_algorithm: AutoencoderAlgorithm value (default:
                 AutoencoderAlgorithm.IWAE)
 
-        output: torch.Tensor [batch_size]
+        Returns: tensor [batch_size]
         """
-
-        for value, value_type, value_name, value_type_name in [
-            [autoencoder_algorithm, AutoencoderAlgorithm,
-             'autoencoder_algorithm', 'AutoencoderAlgorithm']
-        ]:
-            if not isinstance(value, value_type):
-                raise TypeError('{} must be an {} enum.'.format(
-                    value_name, value_type_name))
 
         batch_size = next(iter(observations[0].values())).size(0) \
             if isinstance(observations[0], dict) else observations[0].size(0)

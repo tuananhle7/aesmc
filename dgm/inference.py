@@ -16,14 +16,13 @@ class InferenceAlgorithm(enum.Enum):
 def get_resampled_latents(latents, ancestral_indices):
     """Resample list of latents.
 
-    input:
-        latents: list of `torch.Tensor`s [batch_size, num_particles] or `dict`
-            thereof
+    Args:
+        latents: list of tensors [batch_size, num_particles] or dicts thereof
         ancestral_indices: list where each element is a LongTensor
             [batch_size, num_particles] of length (len(latents) - 1); can
             be empty.
 
-    output: list of elements of the same type as latents
+    Returns: list of elements of the same type as latents
     """
 
     assert(len(ancestral_indices) == len(latents) - 1)
@@ -55,10 +54,10 @@ def get_resampled_latents(latents, ancestral_indices):
 def sample_ancestral_index(log_weight):
     """Sample ancestral index using systematic resampling.
 
-    input:
+    Args:
         log_weight: log of unnormalized weights, `torch.Tensor`
             [batch_size, num_particles]
-    output:
+    Returns:
         zero-indexed ancestral index: LongTensor [batch_size, num_particles]
     """
 
@@ -94,32 +93,39 @@ def sample_ancestral_index(log_weight):
     else:
         return torch.from_numpy(indices).long()
 
-def infer(
-    inference_algorithm,
-    observations,
-    initial,
-    transition,
-    emission,
-    proposal,
-    num_particles,
-    return_log_marginal_likelihood=False,
-    return_latents=True,
-    return_original_latents=False,
-    return_log_weight=True,
-    return_log_weights=False,
-    return_ancestral_indices=False
-):
+
+def infer(inference_algorithm, observations, initial, transition, emission,
+          proposal, num_particles, return_log_marginal_likelihood=False,
+          return_latents=True, return_original_latents=False,
+          return_log_weight=True, return_log_weights=False,
+          return_ancestral_indices=False):
     """Perform inference on a state space model using either sequential Monte
     Carlo or importance sampling.
 
-    input:
+    Args:
         inference_algorithm: InferenceAlgorithm value
         observations: list of `torch.Tensor`s [batch_size, dim1, ..., dimN] or
             `dict`s thereof
-        initial: dgm.model.InitialDistribution object
-        transition: dgm.model.TransitionDistribution object
-        emission: dgm.model.EmissionDistribution object
-        proposal: dgm.model.ProposalDistribution object
+        initial: a callable object (function or nn.Module) which has no
+            arguments and returns a torch.distributions.Distribution or a dict
+            thereof
+        transition: a callable object (function or nn.Module) with signature:
+            Args:
+                previous_latent: tensor [batch_size, num_particles, ...]
+                time: int
+            Returns: torch.distributions.Distribution or a dict thereof
+        emission: a callable object (function or nn.Module) with signature:
+            Args:
+                latent: tensor [batch_size, num_particles, ...]
+                time: int
+            Returns: torch.distributions.Distribution or a dict thereof
+        proposal: a callable object (function or nn.Module) with signature:
+            Args:
+                previous_latent: tensor [batch_size, num_particles, ...]
+                time: int
+                observations: list where each element is a tensor
+                    [batch_size, ...] or a dict thereof
+            Returns: torch.distributions.Distribution or a dict thereof
         num_particles: int; number of particles
         return_log_marginal_likelihood: bool (default: False)
         return_latents: bool (default: True)
@@ -129,7 +135,7 @@ def infer(
         return_log_weights: bool (default: False)
         return_ancestral_indices: bool (default: False); only applicable for
             InferenceAlgorithm.SMC
-    output:
+    Returns:
         a dict containing key-value pairs for a subset of the following keys
         as specified by the return_{} parameters:
             log_marginal_likelihood: `torch.Tensor` [batch_size]
@@ -159,14 +165,13 @@ def infer(
     log_weights = []
     log_latents = []
 
-    _proposal = proposal.proposal(time=0, observations=observations)
+    _proposal = proposal(time=0, observations=observations)
     latent = state.sample(_proposal, batch_size, num_particles)
     proposal_log_prob = state.log_prob(_proposal, latent)
-    initial_log_prob = state.log_prob(initial.initial(), latent)
+    initial_log_prob = state.log_prob(initial(), latent)
     emission_log_prob = state.log_prob(
-        emission.emission(latent=latent, time=0),
-        state.expand_observation(observations[0], num_particles)
-    )
+        emission(latent=latent, time=0),
+        state.expand_observation(observations[0], num_particles))
 
     if return_original_latents or return_latents:
         original_latents.append(latent)
@@ -181,17 +186,14 @@ def infer(
         else:
             previous_latent = latent
 
-        _proposal = proposal.proposal(
-            previous_latent=previous_latent,
-            time=time,
-            observations=observations)
+        _proposal = proposal(previous_latent=previous_latent,
+                             time=time, observations=observations)
         latent = state.sample(_proposal, batch_size, num_particles)
         proposal_log_prob = state.log_prob(_proposal, latent)
         transition_log_prob = state.log_prob(
-            transition.transition(previous_latent=previous_latent, time=time),
-            latent)
+            transition(previous_latent=previous_latent, time=time), latent)
         emission_log_prob = state.log_prob(
-            emission.emission(latent=latent, time=time),
+            emission(latent=latent, time=time),
             state.expand_observation(observations[time], num_particles))
 
         if return_original_latents or return_latents:
@@ -211,8 +213,7 @@ def infer(
 
         if return_latents:
             latents = get_resampled_latents(
-                original_latents, ancestral_indices
-            )
+                original_latents, ancestral_indices)
         else:
             latents = None
 
@@ -370,7 +371,7 @@ def latents_log_prob(
     if ancestral_indices is None:
         result = 0
         for time in range(len(original_latents)):
-            _proposal = proposal.proposal(
+            _proposal = proposal(
                 previous_latent=(
                     None if (time == 0) else original_latents[time - 1]
                 ),
@@ -392,7 +393,7 @@ def latents_log_prob(
             # previous_latent contains x_{t - 1}^{a_{t - 1}^k}
             #   (or None if time==0)
 
-            _proposal = proposal.proposal(
+            _proposal = proposal(
                 previous_latent=previous_latent,
                 time=time,
                 observations=observations
@@ -415,99 +416,99 @@ def latents_log_prob(
         return result
 
 
-def control_variate(
-    proposal,
-    observations,
-    elbo_detached,
-    num_particles,
-    original_latents,
-    log_weights,
-    non_reparam=False
-):
-    result = torch.zeros(elbo_detached.size())
-    if elbo_detached.is_cuda:
-        result = result.cuda()
-    for t in range(len(log_weights)):
-        log_weight = log_weights[t]
-
-        _proposal = proposal.proposal(
-            previous_latent=(
-                None if (t == 0) else original_latents[t - 1]
-            ),
-            time=t,
-            observations=observations
-        )
-        log_proposal = state.log_prob(
-                _proposal, original_latents[t], non_reparam
-                )
-
-        for i in range(num_particles):
-            log_weight_ = log_weight[:, list(set(range(num_particles)).difference(set([i])))]
-            control_variate = math.logsumexp(
-                torch.cat([log_weight_, torch.mean(log_weight_, dim=1, keepdim=True)], dim=1),
-                dim=1
-                )
-            result = result + (elbo_detached - control_variate.detach()) * log_proposal[:, i]
-    return result
-
-
-# NOTE: This function is currently unused; consider removing it.
-def latents_and_ancestral_indices_log_prob(
-    proposal,
-    observations,
-    original_latents,
-    ancestral_indices,
-    log_weights,
-    non_reparam=False
-):
-    """Returns a log of the proposal density of both the particle values and the
-    ancestral indices.
-
-    input:
-        proposal: dgm.model.ProposalDistribution object
-        observations: list of `torch.Tensor`s [batch_size, dim1, ..., dimN] or
-            `dict`s thereof
-        original_latents: list of `torch.Tensor`s (or `dict` thereof)
-            [batch_size, num_particles] of length len(observations)
-        ancestral_indices: list of `torch.LongTensor`s
-            [batch_size, num_particles] of length (len(observations) - 1)
-        log_weights: list of `torch.Tensor`s [batch_size, num_particles]
-            of length len(observations)
-        non_reparam: bool; if True, only returns log probability of the
-            non-reparameterizable part of the latents (default: False).
-
-    output: `torch.Tensor` [batch_size] that performs the computation
-
-        \log\left(
-            {
-                \prod_{k = 0}^{num_particles} q_0(x_0^k)
-            }
-
-            *
-
-            {
-                \prod_{t = 1}^{num_timesteps - 1}
-                \prod_{k = 0}^{num_particles - 1}
-                    q_t(x_t^k | x_{t - 1}^{a_{t - 1}^k})
-                    Discrete(a_{t - 1}^k | w_{t - 1}^{1:num_particles})
-            }
-        \right),
-
-        on each element in the batch where
-            num_timesteps = len(original_latents),
-            x_t^k is the (t, k)th particle value
-            a_{t - 1}^k = ancestral_indices[t - 1][b][k]
-            w_{t - 1}^k = log_weights[t - 1][b][k]
-            q_0(x_0^k) is the initial proposal density
-            q_t(x_t | x_{t - 1}) is the intermediate proposal density
-            Discrete(a | p_1, ..., p_K) = p_a / (\sum_{k = 1}^K p_k)
-    """
-
-    return ancestral_indices_log_prob(ancestral_indices, log_weights) + \
-        latents_log_prob(
-            proposal,
-            observations,
-            original_latents,
-            ancestral_indices=None,
-            non_reparam=False
-        )
+# def control_variate(
+#     proposal,
+#     observations,
+#     elbo_detached,
+#     num_particles,
+#     original_latents,
+#     log_weights,
+#     non_reparam=False
+# ):
+#     result = torch.zeros(elbo_detached.size())
+#     if elbo_detached.is_cuda:
+#         result = result.cuda()
+#     for t in range(len(log_weights)):
+#         log_weight = log_weights[t]
+#
+#         _proposal = proposal.proposal(
+#             previous_latent=(
+#                 None if (t == 0) else original_latents[t - 1]
+#             ),
+#             time=t,
+#             observations=observations
+#         )
+#         log_proposal = state.log_prob(
+#                 _proposal, original_latents[t], non_reparam
+#                 )
+#
+#         for i in range(num_particles):
+#             log_weight_ = log_weight[:, list(set(range(num_particles)).difference(set([i])))]
+#             control_variate = math.logsumexp(
+#                 torch.cat([log_weight_, torch.mean(log_weight_, dim=1, keepdim=True)], dim=1),
+#                 dim=1
+#                 )
+#             result = result + (elbo_detached - control_variate.detach()) * log_proposal[:, i]
+#     return result
+#
+#
+# # NOTE: This function is currently unused; consider removing it.
+# def latents_and_ancestral_indices_log_prob(
+#     proposal,
+#     observations,
+#     original_latents,
+#     ancestral_indices,
+#     log_weights,
+#     non_reparam=False
+# ):
+#     """Returns a log of the proposal density of both the particle values and the
+#     ancestral indices.
+#
+#     input:
+#         proposal: dgm.model.ProposalDistribution object
+#         observations: list of `torch.Tensor`s [batch_size, dim1, ..., dimN] or
+#             `dict`s thereof
+#         original_latents: list of `torch.Tensor`s (or `dict` thereof)
+#             [batch_size, num_particles] of length len(observations)
+#         ancestral_indices: list of `torch.LongTensor`s
+#             [batch_size, num_particles] of length (len(observations) - 1)
+#         log_weights: list of `torch.Tensor`s [batch_size, num_particles]
+#             of length len(observations)
+#         non_reparam: bool; if True, only returns log probability of the
+#             non-reparameterizable part of the latents (default: False).
+#
+#     output: `torch.Tensor` [batch_size] that performs the computation
+#
+#         \log\left(
+#             {
+#                 \prod_{k = 0}^{num_particles} q_0(x_0^k)
+#             }
+#
+#             *
+#
+#             {
+#                 \prod_{t = 1}^{num_timesteps - 1}
+#                 \prod_{k = 0}^{num_particles - 1}
+#                     q_t(x_t^k | x_{t - 1}^{a_{t - 1}^k})
+#                     Discrete(a_{t - 1}^k | w_{t - 1}^{1:num_particles})
+#             }
+#         \right),
+#
+#         on each element in the batch where
+#             num_timesteps = len(original_latents),
+#             x_t^k is the (t, k)th particle value
+#             a_{t - 1}^k = ancestral_indices[t - 1][b][k]
+#             w_{t - 1}^k = log_weights[t - 1][b][k]
+#             q_0(x_0^k) is the initial proposal density
+#             q_t(x_t | x_{t - 1}) is the intermediate proposal density
+#             Discrete(a | p_1, ..., p_K) = p_a / (\sum_{k = 1}^K p_k)
+#     """
+#
+#     return ancestral_indices_log_prob(ancestral_indices, log_weights) + \
+#         latents_log_prob(
+#             proposal,
+#             observations,
+#             original_latents,
+#             ancestral_indices=None,
+#             non_reparam=False
+#         )
