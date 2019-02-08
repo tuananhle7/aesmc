@@ -55,7 +55,7 @@ def sample_ancestral_index(log_weight):
     """Sample ancestral index using systematic resampling.
 
     Args:
-        log_weight: log of unnormalized weights, `torch.Tensor`
+        log_weight: log of unnormalized weights, tensor
             [batch_size, num_particles]
     Returns:
         zero-indexed ancestral index: LongTensor [batch_size, num_particles]
@@ -104,8 +104,8 @@ def infer(inference_algorithm, observations, initial, transition, emission,
 
     Args:
         inference_algorithm: InferenceAlgorithm value
-        observations: list of `torch.Tensor`s [batch_size, dim1, ..., dimN] or
-            `dict`s thereof
+        observations: list of tensors [batch_size, dim1, ..., dimN] or
+            dicts thereof
         initial: a callable object (function or nn.Module) which has no
             arguments and returns a torch.distributions.Distribution or a dict
             thereof
@@ -138,13 +138,13 @@ def infer(inference_algorithm, observations, initial, transition, emission,
     Returns:
         a dict containing key-value pairs for a subset of the following keys
         as specified by the return_{} parameters:
-            log_marginal_likelihood: `torch.Tensor` [batch_size]
-            latents: list of `torch.Tensor`s (or `dict` thereof)
+            log_marginal_likelihood: tensor [batch_size]
+            latents: list of tensors (or dict thereof)
                 [batch_size, num_particles] of length len(observations)
-            original_latents: list of `torch.Tensor`s (or `dict` thereof)
+            original_latents: list of tensors (or dict thereof)
                 [batch_size, num_particles] of length len(observations)
-            log_weight: `torch.Tensor` [batch_size, num_particles]
-            log_weights: list of `torch.Tensor`s [batch_size, num_particles]
+            log_weight: tensor [batch_size, num_particles]
+            log_weights: list of tensors [batch_size, num_particles]
                 of length len(observations)
             ancestral_indices: list of `torch.LongTensor`s
                 [batch_size, num_particles] of length len(observations)
@@ -163,7 +163,6 @@ def infer(inference_algorithm, observations, initial, transition, emission,
     if inference_algorithm == InferenceAlgorithm.SMC:
         ancestral_indices = []
     log_weights = []
-    log_latents = []
 
     _proposal = proposal(time=0, observations=observations)
     latent = state.sample(_proposal, batch_size, num_particles)
@@ -178,7 +177,6 @@ def infer(inference_algorithm, observations, initial, transition, emission,
 
     log_weights.append(
         initial_log_prob + emission_log_prob - proposal_log_prob)
-    log_latents.append(proposal_log_prob)
     for time in range(1, len(observations)):
         if inference_algorithm == InferenceAlgorithm.SMC:
             ancestral_indices.append(sample_ancestral_index(log_weights[-1]))
@@ -201,7 +199,6 @@ def infer(inference_algorithm, observations, initial, transition, emission,
 
         log_weights.append(
             transition_log_prob + emission_log_prob - proposal_log_prob)
-        log_latents.append(proposal_log_prob)
 
     if inference_algorithm == InferenceAlgorithm.SMC:
         if return_log_marginal_likelihood:
@@ -212,8 +209,8 @@ def infer(inference_algorithm, observations, initial, transition, emission,
             log_marginal_likelihood = None
 
         if return_latents:
-            latents = get_resampled_latents(
-                original_latents, ancestral_indices)
+            latents = get_resampled_latents(original_latents,
+                                            ancestral_indices)
         else:
             latents = None
 
@@ -278,13 +275,13 @@ def infer(inference_algorithm, observations, initial, transition, emission,
 def ancestral_indices_log_prob(ancestral_indices, log_weights):
     """Returns a log probability of the ancestral indices.
 
-    input:
+    Args:
         ancestral_indices: list of `LongTensor`s
             [batch_size, num_particles] of length (len(log_weights) - 1); can
             be empty
         log_weights: list of `Tensor`s [batch_size, num_particles]
 
-    output: `Tensor`s [batch_size] that performs the computation
+    Returns: `Tensor`s [batch_size] that performs the computation
 
         \log\left(
             \prod_{t = 1}^{num_timesteps - 1} \prod_{k = 0}^{num_particles - 1}
@@ -300,7 +297,7 @@ def ancestral_indices_log_prob(ancestral_indices, log_weights):
             w_{t - 1}^k = log_weights[t - 1][b][k]
             Discrete(a | p_1, ..., p_K) = p_a / (\sum_{k = 1}^K p_k)
 
-        Note: returns a zero `torch.Tensor` [batch_size] if num_timesteps == 1.
+        Note: returns a zero tensor [batch_size] if num_timesteps == 1.
     """
     if ancestral_indices is None or log_weights is None:
         return 0
@@ -329,11 +326,17 @@ def latents_log_prob(
 ):
     """Returns log probability of latents under the proposal.
 
-    input:
-        proposal: dgm.model.ProposalDistribution object
-        observations: list of `torch.Tensor`s [batch_size, dim1, ..., dimN] or
-            `dict`s thereof
-        original_latents: list of `torch.Tensor`s (or `dict` thereof)
+    Args:
+        proposal: a callable object (function or nn.Module) with signature:
+            Args:
+                previous_latent: tensor [batch_size, num_particles, ...]
+                time: int
+                observations: list where each element is a tensor
+                    [batch_size, ...] or a dict thereof
+            Returns: torch.distributions.Distribution or a dict thereof
+        observations: list of tensors [batch_size, dim1, ..., dimN] or
+            dicts thereof
+        original_latents: list of tensors (or dict thereof)
             [batch_size, num_particles] of length len(observations)
         ancestral_indices: list of `torch.LongTensor`s
             [batch_size, num_particles] of length (len(observations) - 1). If
@@ -342,7 +345,7 @@ def latents_log_prob(
         non_reparam: bool; if True, only returns log probability of the
             non-reparameterizable part of the latents (default: False).
 
-    output: `torch.Tensor` [batch_size] that performs the computation
+    Returns: tensor [batch_size] that performs the computation
 
         \log\left(
             {
@@ -466,18 +469,18 @@ def latents_log_prob(
 #
 #     input:
 #         proposal: dgm.model.ProposalDistribution object
-#         observations: list of `torch.Tensor`s [batch_size, dim1, ..., dimN] or
-#             `dict`s thereof
-#         original_latents: list of `torch.Tensor`s (or `dict` thereof)
+#         observations: list of tensors [batch_size, dim1, ..., dimN] or
+#             dicts thereof
+#         original_latents: list of tensors (or dict thereof)
 #             [batch_size, num_particles] of length len(observations)
 #         ancestral_indices: list of `torch.LongTensor`s
 #             [batch_size, num_particles] of length (len(observations) - 1)
-#         log_weights: list of `torch.Tensor`s [batch_size, num_particles]
+#         log_weights: list of tensors [batch_size, num_particles]
 #             of length len(observations)
 #         non_reparam: bool; if True, only returns log probability of the
 #             non-reparameterizable part of the latents (default: False).
 #
-#     output: `torch.Tensor` [batch_size] that performs the computation
+#     output: tensor [batch_size] that performs the computation
 #
 #         \log\left(
 #             {
