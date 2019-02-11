@@ -77,11 +77,11 @@ def empirical_variance(value, log_weight):
 def log_ess(log_weight):
     """Log of Effective sample size.
 
-    input:
+    Args:
         log_weight: Unnormalized log weights
             torch.Tensor [batch_size, num_particles] (or [num_particles])
 
-    output: log of effective sample size [batch_size] (or [1])
+    Returns: log of effective sample size [batch_size] (or [1])
     """
     dim = 1 if log_weight.ndimension() == 2 else 0
 
@@ -92,171 +92,54 @@ def log_ess(log_weight):
 def ess(log_weight):
     """Effective sample size.
 
-    input:
+    Args:
         log_weight: Unnormalized log weights
             torch.Tensor [batch_size, num_particles] (or [num_particles])
 
-    output: effective sample size [batch_size] (or [1])
+    Returns: effective sample size [batch_size] (or [1])
     """
 
     return torch.exp(log_ess(log_weight))
 
 
 # NOTE: old and untested
-def reconstruct_observations(
-    algorithm,
-    observations,
-    initial,
-    transition,
-    emission,
-    proposal,
-    num_particles
+def infer_reconstruct_predict(
+    inference_algorithm, observations, initial, transition, emission, proposal,
+    num_particles, num_predictions
 ):
-    """Reconstruct observations given a generative model and an inference
-    algorithm.
-
-    input:
-        algorithm: 'is' or 'smc'
-        observations: list of `torch.Tensor`s [batch_size, dim1, ..., dimN] or
-            `dict`s thereof
-        initial: dgm.model.InitialDistribution object
-        transition: dgm.model.TransitionDistribution object
-        emission: dgm.model.EmissionDistribution object
-        proposal: dgm.model.ProposalDistribution object
-        num_particles: int; number of particles
-    output:
-        latents: list of `torch.Tensor`s [batch_size, ...] or `dict`s thereof
-        reconstructed_observations: list of `torch.Tensor`s
-            [batch_size, dim1, ..., dimN] or `dict`s thereof
-        log_weight: torch.Tensor [batch_size, num_particles]
-    """
-
-    batch_size = next(iter(observations[0].values())).size(0) \
-        if isinstance(observations[0], dict) else observations[0].size(0)
-
-    inference_result = inference.infer(
-        algorithm=algorithm,
-        observations=observations,
-        initial=initial,
-        transition=transition,
-        emission=emission,
-        proposal=proposal,
-        num_particles=num_particles,
-        return_log_marginal_likelihood=False,
-        return_latents=True,
-        return_original_latents=False,
-        return_log_weight=True,
-        return_log_weights=False,
-        return_ancestral_indices=False
-    )
-
-    return inference_result['latents'], [
-        state.sample(
-            emission.emission(latent=latent, time=time),
-            batch_size,
-            num_particles
-        )
-        for latent in inference_result['latents']
-    ], inference_result['log_weight']
-
-
-# NOTE: old and untested
-def predict_observations(algorithm, observations, initial, transition,
-                         emission, proposal, num_particles,
-                         num_prediction_timesteps):
-    """Predict observations given a generative model and an inference
-    algorithm.
-
-    Args:
-        algorithm: 'is' or 'smc'
-        observations: list of `torch.Tensor`s [batch_size, dim1, ..., dimN] or
-            `dict`s thereof
-        initial: dgm.model.InitialDistribution object
-        transition: dgm.model.TransitionDistribution object
-        emission: dgm.model.EmissionDistribution object
-        proposal: dgm.model.ProposalDistribution object
-        num_particles: int; number of particles
-        num_prediction_timesteps: int; number of timesteps to predict
-    Returns:
-        predicted_latents: list of `torch.Tensor`s [batch_size, ...] or
-            `dict`s thereof
-        predicted_observations: list of `torch.Tensor`s
-            [batch_size, dim1, ..., dimN] or `dict`s thereof
-        log_weight: torch.Tensor [batch_size, num_particles]
-    """
-
-    batch_size = next(iter(observations[0].values())).size(0) \
-        if isinstance(observations[0], dict) else observations[0].size(0)
-
-    inference_result = inference.infer(
-        algorithm=algorithm,
-        observations=observations,
-        initial=initial,
-        transition=transition,
-        emission=emission,
-        proposal=proposal,
-        num_particles=num_particles,
-        return_log_marginal_likelihood=False,
-        return_latents=True,
-        return_original_latents=False,
-        return_log_weight=True,
-        return_log_weights=False,
-        return_ancestral_indices=False
-    )
-
-    last_latent = inference_result['latents'][-1]
-    predicted_latents = []
-    predicted_observations = []
-    for time in range(num_prediction_timesteps):
-        predicted_latents.append(
-            state.sample(transition(last_latent, time=time),
-                         batch_size, num_particles))
-        predicted_observations.append(
-            state.sample(emission(predicted_latents[-1], time=time),
-                         batch_size, num_particles))
-        last_latent = predicted_latents[-1]
-
-    return predicted_latents, predicted_observations, \
-        inference_result['log_weight']
-
-
-# NOTE: old and untested
-def reconstruct_and_predict_observations(
-    algorithm, observations, initial, transition, emission, proposal,
-    num_particles, num_prediction_timesteps
-):
-    """Reconstruct and predict observations given a generative model and an
-    inference algorithm.
+    """Infer, reconstruct and predict given a generative model, observations
+    and an inference algorithm.
 
     More efficient than calling reconstruct_observations and
     predict_observations in turn.
 
     Args:
-        algorithm: 'is' or 'smc'
-        observations: list of `torch.Tensor`s [batch_size, dim1, ..., dimN] or
-            `dict`s thereof
+        inference_algorithm: InferenceAlgorithm value
+        observations: list of tensors [batch_size, dim1, ..., dimN] or
+            dicts thereof
         initial: dgm.model.InitialDistribution object
         transition: dgm.model.TransitionDistribution object
         emission: dgm.model.EmissionDistribution object
         proposal: dgm.model.ProposalDistribution object
         num_particles: int; number of particles
-        num_prediction_timesteps: int; number of timesteps to predict
+        num_predictions: int; number of timesteps to predict
     Returns:
-        latents: list of `torch.Tensor`s [batch_size, ...] or `dict`s thereof
-        reconstructed_observations: list of `torch.Tensor`s
-            [batch_size, dim1, ..., dimN] or `dict`s thereof
-        predicted_latents: list of `torch.Tensor`s [batch_size, ...] or
-            `dict`s thereof
-        predicted_observations: list of `torch.Tensor`s
-            [batch_size, dim1, ..., dimN] or `dict`s thereof
+        latents: list of tensors [batch_size, ...] or dicts thereof
+        reconstructed_observations: list of tensors
+            [batch_size, dim1, ..., dimN] or dicts thereof
+        predicted_latents: list of tensors [batch_size, ...] or
+            dicts thereof
+        predicted_observations: list of tensors
+            [batch_size, dim1, ..., dimN] or dicts thereof
         log_weight: torch.Tensor [batch_size, num_particles]
     """
 
     batch_size = next(iter(observations[0].values())).size(0) \
         if isinstance(observations[0], dict) else observations[0].size(0)
+    num_timesteps = len(observations)
 
     inference_result = inference.infer(
-        algorithm=algorithm,
+        inference_algorithm=inference_algorithm,
         observations=observations,
         initial=initial,
         transition=transition,
@@ -270,25 +153,23 @@ def reconstruct_and_predict_observations(
         return_log_weights=False,
         return_ancestral_indices=False)
 
-    last_latent = inference_result['latents'][-1]
-    predicted_latents = []
+    log_weight = inference_result['log_weight']
+    latents = inference_result['latents']
+    reconstructed_observations = []
+    for time in range(num_timesteps):
+        reconstructed_observations.append(
+            state.sample(emission(latents[:time + 1], time=time),
+                         batch_size, num_particles))
     predicted_observations = []
-    for time in range(num_prediction_timesteps):
-        predicted_latents.append(
-            state.sample(
-                transition(last_latent, time=time), batch_size, num_particles))
+    for time in range(num_timesteps, num_timesteps + num_predictions):
+        latents.append(state.sample(transition(latents, time=time),
+                       batch_size, num_particles))
         predicted_observations.append(
-            state.sample(
-                emission(predicted_latents[-1], time=time),  batch_size,
-                num_particles))
-        last_latent = predicted_latents[-1]
+            state.sample(emission(latents, time=time),
+                         batch_size, num_particles))
 
-    return inference_result['latents'], \
-        [state.sample(emission(latent, time=time), batch_size, num_particles)
-         for latent in inference_result['latents']], \
-        predicted_latents, \
-        predicted_observations, \
-        inference_result['log_weight']
+    return latents[:num_timesteps], reconstructed_observations, \
+        latents[num_timesteps:], predicted_observations, log_weight
 
 
 # TODO: test
@@ -304,10 +185,10 @@ def sample_from_prior(initial, transition, emission, num_timesteps,
         batch_size: int
 
     Returns:
-        latents: list of `torch.Tensor`s (or `dict` thereof)
+        latents: list of tensors (or dict thereof)
             [batch_size] of length len(observations)
-        observations: list of `torch.Tensor`s [batch_size, dim1, ..., dimN] or
-            `dict`s thereof
+        observations: list of tensors [batch_size, dim1, ..., dimN] or
+            dicts thereof
     """
 
     latents = []
