@@ -161,20 +161,13 @@ def reconstruct_observations(
 
 
 # NOTE: old and untested
-def predict_observations(
-    algorithm,
-    observations,
-    initial,
-    transition,
-    emission,
-    proposal,
-    num_particles,
-    num_prediction_timesteps
-):
+def predict_observations(algorithm, observations, initial, transition,
+                         emission, proposal, num_particles,
+                         num_prediction_timesteps):
     """Predict observations given a generative model and an inference
     algorithm.
 
-    input:
+    Args:
         algorithm: 'is' or 'smc'
         observations: list of `torch.Tensor`s [batch_size, dim1, ..., dimN] or
             `dict`s thereof
@@ -184,7 +177,7 @@ def predict_observations(
         proposal: dgm.model.ProposalDistribution object
         num_particles: int; number of particles
         num_prediction_timesteps: int; number of timesteps to predict
-    output:
+    Returns:
         predicted_latents: list of `torch.Tensor`s [batch_size, ...] or
             `dict`s thereof
         predicted_observations: list of `torch.Tensor`s
@@ -216,19 +209,11 @@ def predict_observations(
     predicted_observations = []
     for time in range(num_prediction_timesteps):
         predicted_latents.append(
-            state.sample(
-                transition.transition(last_latent, time=time),
-                batch_size,
-                num_particles
-            )
-        )
+            state.sample(transition(last_latent, time=time),
+                         batch_size, num_particles))
         predicted_observations.append(
-            state.sample(
-                emission.emission(predicted_latents[-1], time=time),
-                batch_size,
-                num_particles
-            )
-        )
+            state.sample(emission(predicted_latents[-1], time=time),
+                         batch_size, num_particles))
         last_latent = predicted_latents[-1]
 
     return predicted_latents, predicted_observations, \
@@ -237,14 +222,8 @@ def predict_observations(
 
 # NOTE: old and untested
 def reconstruct_and_predict_observations(
-    algorithm,
-    observations,
-    initial,
-    transition,
-    emission,
-    proposal,
-    num_particles,
-    num_prediction_timesteps
+    algorithm, observations, initial, transition, emission, proposal,
+    num_particles, num_prediction_timesteps
 ):
     """Reconstruct and predict observations given a generative model and an
     inference algorithm.
@@ -252,7 +231,7 @@ def reconstruct_and_predict_observations(
     More efficient than calling reconstruct_observations and
     predict_observations in turn.
 
-    input:
+    Args:
         algorithm: 'is' or 'smc'
         observations: list of `torch.Tensor`s [batch_size, dim1, ..., dimN] or
             `dict`s thereof
@@ -262,7 +241,7 @@ def reconstruct_and_predict_observations(
         proposal: dgm.model.ProposalDistribution object
         num_particles: int; number of particles
         num_prediction_timesteps: int; number of timesteps to predict
-    output:
+    Returns:
         latents: list of `torch.Tensor`s [batch_size, ...] or `dict`s thereof
         reconstructed_observations: list of `torch.Tensor`s
             [batch_size, dim1, ..., dimN] or `dict`s thereof
@@ -289,8 +268,7 @@ def reconstruct_and_predict_observations(
         return_original_latents=False,
         return_log_weight=True,
         return_log_weights=False,
-        return_ancestral_indices=False
-    )
+        return_ancestral_indices=False)
 
     last_latent = inference_result['latents'][-1]
     predicted_latents = []
@@ -298,48 +276,34 @@ def reconstruct_and_predict_observations(
     for time in range(num_prediction_timesteps):
         predicted_latents.append(
             state.sample(
-                transition.transition(last_latent, time=time),
-                batch_size,
-                num_particles
-            )
-        )
+                transition(last_latent, time=time), batch_size, num_particles))
         predicted_observations.append(
             state.sample(
-                emission.emission(predicted_latents[-1], time=time),
-                batch_size,
-                num_particles
-            )
-        )
+                emission(predicted_latents[-1], time=time),  batch_size,
+                num_particles))
         last_latent = predicted_latents[-1]
 
     return inference_result['latents'], \
-        [
-            state.sample(
-                emission.emission(latent, time=time),
-                batch_size,
-                num_particles
-            )
-            for latent in inference_result['latents']
-        ], \
+        [state.sample(emission(latent, time=time), batch_size, num_particles)
+         for latent in inference_result['latents']], \
         predicted_latents, \
         predicted_observations, \
         inference_result['log_weight']
 
 
 # TODO: test
-def sample_from_prior(
-    initial, transition, emission, num_timesteps, batch_size
-):
+def sample_from_prior(initial, transition, emission, num_timesteps,
+                      batch_size):
     """Samples latents and observations from prior
 
-    input:
+    Args:
         initial: dgm.model.InitialDistribution object
         transition: dgm.model.TransitionDistribution object
         emission: dgm.model.EmissionDistribution object
         num_timesteps: int
         batch_size: int
 
-    output:
+    Returns:
         latents: list of `torch.Tensor`s (or `dict` thereof)
             [batch_size] of length len(observations)
         observations: list of `torch.Tensor`s [batch_size, dim1, ..., dimN] or
@@ -354,9 +318,9 @@ def sample_from_prior(
             latents.append(state.sample(initial(), batch_size, 1))
         else:
             latents.append(state.sample(transition(
-                previous_latent=latents[-1], time=time), batch_size, 1))
+                previous_latents=latents, time=time), batch_size, 1))
         observations.append(state.sample(emission(
-            latent=latents[-1], time=time), batch_size, 1))
+            latents=latents, time=time), batch_size, 1))
 
     def squeeze_num_particles(value):
         if isinstance(value, dict):
@@ -364,7 +328,5 @@ def sample_from_prior(
         else:
             return value.squeeze(1)
 
-    return tuple(map(
-        lambda values: list(map(squeeze_num_particles, values)),
-        [latents, observations]
-    ))
+    return tuple(map(lambda values: list(map(squeeze_num_particles, values)),
+                 [latents, observations]))

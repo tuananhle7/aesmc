@@ -101,9 +101,9 @@ class MyTransitionDistribution:
         self.transition_covariance = transition_covariance
         self.transition_offset = transition_offset
 
-    def __call__(self, previous_latent=None, time=None):
+    def __call__(self, previous_latents=None, time=None):
         return torch.distributions.Normal(
-            loc=previous_latent * self.transition_matrix +
+            loc=previous_latents[-1] * self.transition_matrix +
             self.transition_offset,
             scale=np.sqrt(self.transition_covariance))
 
@@ -114,9 +114,9 @@ class MyEmissionDistribution:
         self.emission_covariance = emission_covariance
         self.emission_offset = emission_offset
 
-    def __call__(self, latent=None, time=None):
+    def __call__(self, latents=None, time=None):
         return torch.distributions.Normal(
-            loc=latent * self.emission_matrix +
+            loc=latents[-1] * self.emission_matrix +
             self.emission_offset,
             scale=np.sqrt(self.emission_covariance))
 
@@ -130,18 +130,16 @@ class MyProposalDistribution:
         self.transition_covariance = transition_covariance
         self.transition_offset = transition_offset
 
-    def __call__(self, previous_latent=None, time=None, observations=None):
+    def __call__(self, previous_latents=None, time=None, observations=None):
         if time == 0:
             return torch.distributions.Normal(
                 loc=self.initial_mean,
-                scale=np.sqrt(self.initial_variance)
-            )
+                scale=np.sqrt(self.initial_variance))
         else:
             return torch.distributions.Normal(
-                loc=previous_latent * self.transition_matrix +
+                loc=previous_latents[-1] * self.transition_matrix +
                 self.transition_offset,
-                scale=np.sqrt(self.transition_covariance)
-            )
+                scale=np.sqrt(self.transition_covariance))
 
 
 class TestInfer(unittest.TestCase):

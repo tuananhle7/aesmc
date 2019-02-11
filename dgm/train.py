@@ -35,42 +35,28 @@ def get_phi_parameters(autoencoder):
         return autoencoder.proposal.parameters()
 
 
-def train_autoencoder(
-    autoencoder,
-    dataloader,
-    autoencoder_algorithm,
-    num_epochs,
-    num_iterations_per_epoch=None,
-    num_particles=None,
-    optimizer_algorithm=torch.optim.Adam,
-    optimizer_kwargs={},
-    callback=None
-):
+def train_autoencoder(autoencoder, dataloader, autoencoder_algorithm,
+                      num_epochs, num_iterations_per_epoch=None,
+                      num_particles=None, optimizer_algorithm=torch.optim.Adam,
+                      optimizer_kwargs={}, callback=None):
     optimizer = optimizer_algorithm(autoencoder.parameters(),
                                     **optimizer_kwargs)
-    if autoencoder_algorithm in [ae.AutoencoderAlgorithm.VAE,
-                                 ae.AutoencoderAlgorithm.IWAE,
-                                 ae.AutoencoderAlgorithm.AESMC]:
-        for epoch_idx in range(num_epochs):
-            for epoch_iteration_idx, observations in enumerate(dataloader):
-                if num_iterations_per_epoch is not None:
-                    if epoch_iteration_idx == num_iterations_per_epoch:
-                        break
-                optimizer.zero_grad()
-                elbo = autoencoder.forward(observations, num_particles,
-                                           autoencoder_algorithm)
-                elbo = torch.mean(elbo)
-                loss = -elbo
-                loss.backward()
-                optimizer.step()
+    for epoch_idx in range(num_epochs):
+        for epoch_iteration_idx, observations in enumerate(dataloader):
+            if num_iterations_per_epoch is not None:
+                if epoch_iteration_idx == num_iterations_per_epoch:
+                    break
+            optimizer.zero_grad()
+            elbo = autoencoder.forward(observations, num_particles,
+                                       autoencoder_algorithm)
+            elbo = torch.mean(elbo)
+            loss = -elbo
+            loss.backward()
+            optimizer.step()
 
-                if callback is not None:
-                    callback(epoch_idx, epoch_iteration_idx, elbo, loss,
-                             autoencoder)
-    else:
-        raise NotImplementedError(
-            'autoencoder_algorithm {} not implemented.'.format(
-                autoencoder_algorithm))
+            if callback is not None:
+                callback(epoch_idx, epoch_iteration_idx, elbo, loss,
+                         autoencoder)
 
 
 class SyntheticDataset(torch.utils.data.Dataset):
@@ -99,13 +85,10 @@ class SyntheticDataset(torch.utils.data.Dataset):
         return sys.maxsize  # effectively infinite
 
 
-def get_synthetic_dataloader(
-    initial, transition, emission, num_timesteps, batch_size
-):
+def get_synthetic_dataloader(initial, transition, emission, num_timesteps,
+                             batch_size):
     return torch.utils.data.DataLoader(
-        SyntheticDataset(
-            initial, transition, emission, num_timesteps, batch_size
-        ),
+        SyntheticDataset(initial, transition, emission, num_timesteps,
+                         batch_size),
         batch_size=1,
-        collate_fn=lambda x: x[0]
-    )
+        collate_fn=lambda x: x[0])

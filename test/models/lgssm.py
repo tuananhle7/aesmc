@@ -22,10 +22,10 @@ class Transition(nn.Module):
         self.mult = nn.Parameter(torch.Tensor([init_mult]).squeeze())
         self.scale = scale
 
-    def forward(self, previous_latent=None, time=None):
+    def forward(self, previous_latents=None, time=None):
         return dgm.state.set_batch_shape_mode(
             torch.distributions.Normal(
-                self.mult * previous_latent, self.scale),
+                self.mult * previous_latents[-1], self.scale),
             dgm.state.DistributionBatchShapeMode.FULLY_EXPANDED)
 
 
@@ -35,9 +35,9 @@ class Emission(nn.Module):
         self.mult = nn.Parameter(torch.Tensor([init_mult]).squeeze())
         self.scale = scale
 
-    def forward(self, latent=None, time=None):
+    def forward(self, latents=None, time=None):
         return dgm.state.set_batch_shape_mode(
-            torch.distributions.Normal(self.mult * latent, self.scale),
+            torch.distributions.Normal(self.mult * latents[-1], self.scale),
             dgm.state.DistributionBatchShapeMode.FULLY_EXPANDED)
 
 
@@ -49,7 +49,7 @@ class Proposal(nn.Module):
         self.lin_0 = nn.Linear(1, 1)
         self.lin_t = nn.Linear(2, 1)
 
-    def forward(self, previous_latent=None, time=None, observations=None):
+    def forward(self, previous_latents=None, time=None, observations=None):
         if time == 0:
             return dgm.state.set_batch_shape_mode(
                 torch.distributions.Normal(
@@ -57,11 +57,11 @@ class Proposal(nn.Module):
                     scale=self.scale_0),
                 dgm.state.DistributionBatchShapeMode.BATCH_EXPANDED)
         else:
-            num_particles = previous_latent.shape[1]
+            num_particles = previous_latents[-1].shape[1]
             return dgm.state.set_batch_shape_mode(
                 torch.distributions.Normal(
                     loc=self.lin_t(torch.cat(
-                        [previous_latent.unsqueeze(-1),
+                        [previous_latents[-1].unsqueeze(-1),
                          observations[time].view(-1, 1, 1).expand(
                             -1, num_particles, 1
                          )],

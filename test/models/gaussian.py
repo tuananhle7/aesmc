@@ -20,9 +20,9 @@ class Likelihood(nn.Module):
         self.log_std = nn.Parameter(
             torch.log(torch.tensor(init_std, dtype=torch.float)))
 
-    def forward(self, latent=None, time=None):
+    def forward(self, latents=None, time=None):
         return torch.distributions.Normal(
-            loc=latent, scale=torch.exp(self.log_std))
+            loc=latents[-1], scale=torch.exp(self.log_std))
 
 
 class InferenceNetwork(nn.Module):
@@ -33,7 +33,7 @@ class InferenceNetwork(nn.Module):
         self.log_std = nn.Parameter(
             torch.log(torch.tensor(init_std, dtype=torch.float)))
 
-    def forward(self, previous_latent=None, time=None, observations=None):
+    def forward(self, previous_latents=None, time=None, observations=None):
         return torch.distributions.Normal(
             loc=self.mult * observations[0] + self.bias,
             scale=torch.exp(self.log_std))

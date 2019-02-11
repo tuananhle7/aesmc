@@ -23,9 +23,9 @@ class MyTransitionNetwork(nn.Module):
         self.multiplier = nn.Parameter(torch.Tensor([transition_multiplier]))
         self.std = 1
 
-    def __call__(self, previous_latent=None, time=None):
+    def __call__(self, previous_latents=None, time=None):
         return torch.distributions.Normal(
-            loc=self.multiplier * previous_latent, scale=self.std)
+            loc=self.multiplier * previous_latents[-1], scale=self.std)
 
 
 class MyEmissionNetwork(nn.Module):
@@ -34,8 +34,8 @@ class MyEmissionNetwork(nn.Module):
         self.multiplier = nn.Parameter(torch.Tensor([emission_multiplier]))
         self.std = 1
 
-    def __call__(self, latent=None, time=None):
-        return torch.distributions.Normal(loc=self.multiplier * latent,
+    def __call__(self, latents=None, time=None):
+        return torch.distributions.Normal(loc=self.multiplier * latents[-1],
                                           scale=self.std)
 
 
@@ -45,12 +45,12 @@ class MyProposalNetwork(nn.Module):
         self.multiplier = nn.Parameter(torch.Tensor([proposal_multiplier]))
         self.std = 1
 
-    def forward(self, previous_latent=None, time=None, observations=None):
+    def forward(self, previous_latents=None, time=None, observations=None):
         if time == 0:
             return torch.distributions.Normal(loc=0, scale=1)
         else:
             return torch.distributions.Normal(
-                loc=self.multiplier * previous_latent, scale=self.std)
+                loc=self.multiplier * previous_latents[-1], scale=self.std)
 
 
 class MeanStdAccum():
@@ -212,7 +212,7 @@ class TestAutoEncoder(unittest.TestCase):
         saving_interval = 10
         logging_interval = 10
         batch_size = 10
-        num_iterations = 20 # 500
+        num_iterations = 500
         num_particles = 100
 
         # http://tuananhle.co.uk/notes/optimal-proposal-lgssm.html

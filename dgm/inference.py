@@ -111,17 +111,20 @@ def infer(inference_algorithm, observations, initial, transition, emission,
             thereof
         transition: a callable object (function or nn.Module) with signature:
             Args:
-                previous_latent: tensor [batch_size, num_particles, ...]
+                previous_latents: list of length time (zero-indexed) where each
+                    element is a tensor [batch_size, num_particles, ...]
                 time: int
             Returns: torch.distributions.Distribution or a dict thereof
         emission: a callable object (function or nn.Module) with signature:
             Args:
-                latent: tensor [batch_size, num_particles, ...]
+                latents: list of length (time + 1) (zero-indexed) where each
+                    element is a tensor [batch_size, num_particles, ...]
                 time: int
             Returns: torch.distributions.Distribution or a dict thereof
         proposal: a callable object (function or nn.Module) with signature:
             Args:
-                previous_latent: tensor [batch_size, num_particles, ...]
+                previous_latents: list of length time (zero-indexed) where each
+                    element is a tensor [batch_size, num_particles, ...]
                 time: int
                 observations: list where each element is a tensor
                     [batch_size, ...] or a dict thereof
@@ -140,9 +143,9 @@ def infer(inference_algorithm, observations, initial, transition, emission,
         as specified by the return_{} parameters:
             log_marginal_likelihood: tensor [batch_size]
             latents: list of tensors (or dict thereof)
-                [batch_size, num_particles] of length len(observations)
+                [batch_size, num_particles, ...] of length len(observations)
             original_latents: list of tensors (or dict thereof)
-                [batch_size, num_particles] of length len(observations)
+                [batch_size, num_particles, ...] of length len(observations)
             log_weight: tensor [batch_size, num_particles]
             log_weights: list of tensors [batch_size, num_particles]
                 of length len(observations)
@@ -164,12 +167,13 @@ def infer(inference_algorithm, observations, initial, transition, emission,
         ancestral_indices = []
     log_weights = []
 
-    _proposal = proposal(time=0, observations=observations)
-    latent = state.sample(_proposal, batch_size, num_particles)
-    proposal_log_prob = state.log_prob(_proposal, latent)
+    proposal_dist = proposal(time=0, observations=observations)
+    latent = state.sample(proposal_dist, batch_size, num_particles)
+    latents_bar = [latent]
+    proposal_log_prob = state.log_prob(proposal_dist, latent)
     initial_log_prob = state.log_prob(initial(), latent)
     emission_log_prob = state.log_prob(
-        emission(latent=latent, time=0),
+        emission(latents=latents_bar, time=0),
         state.expand_observation(observations[0], num_particles))
 
     if return_original_latents or return_latents:
@@ -180,18 +184,22 @@ def infer(inference_algorithm, observations, initial, transition, emission,
     for time in range(1, len(observations)):
         if inference_algorithm == InferenceAlgorithm.SMC:
             ancestral_indices.append(sample_ancestral_index(log_weights[-1]))
-            previous_latent = state.resample(latent, ancestral_indices[-1])
+            previous_latents_bar = [
+                state.resample(latent, ancestral_indices[-1])
+                for latent in latents_bar]
         else:
-            previous_latent = latent
+            previous_latents_bar = latents_bar
 
-        _proposal = proposal(previous_latent=previous_latent,
-                             time=time, observations=observations)
-        latent = state.sample(_proposal, batch_size, num_particles)
-        proposal_log_prob = state.log_prob(_proposal, latent)
+        proposal_dist = proposal(previous_latents=previous_latents_bar,
+                                 time=time, observations=observations)
+        latent = state.sample(proposal_dist, batch_size, num_particles)
+        latents_bar += [latent]
+        proposal_log_prob = state.log_prob(proposal_dist, latent)
         transition_log_prob = state.log_prob(
-            transition(previous_latent=previous_latent, time=time), latent)
+            transition(previous_latents=previous_latents_bar, time=time),
+            latent)
         emission_log_prob = state.log_prob(
-            emission(latent=latent, time=time),
+            emission(latents=latents_bar, time=time),
             state.expand_observation(observations[time], num_particles))
 
         if return_original_latents or return_latents:
