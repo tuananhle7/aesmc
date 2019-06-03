@@ -1,4 +1,4 @@
-# Lightweight library for Deep Generative Models
+# Library for Auto-Encoding Sequential Monte Carlo
 
 ## Installation
 ```
