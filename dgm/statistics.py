@@ -63,12 +63,12 @@ def empirical_mean(value, log_weight):
 def empirical_variance(value, log_weight):
     """Empirical variance.
 
-    input:
+    Args:
         value: torch.Tensor
             [batch_size, num_particles, dim_1, ..., dim_N] (or
             [batch_size, num_particles])
         log_weight: torch.Tensor [batch_size, num_particles]
-    output: empirical mean torch.Tensor
+    Returns: empirical mean torch.Tensor
         [batch_size, dim_1, ..., dim_N] (or [batch_size])
     """
 
@@ -110,9 +110,21 @@ def sample_from_prior(initial, transition, emission, num_timesteps,
     """Samples latents and observations from prior
 
     Args:
-        initial: dgm.model.InitialDistribution object
-        transition: dgm.model.TransitionDistribution object
-        emission: dgm.model.EmissionDistribution object
+        initial: a callable object (function or nn.Module) which has no
+            arguments and returns a torch.distributions.Distribution or a dict
+            thereof
+        transition: a callable object (function or nn.Module) with signature:
+            Args:
+                previous_latents: list of length time where each element is a
+                    tensor [batch_size, num_particles, ...]
+                time: int
+            Returns: torch.distributions.Distribution or a dict thereof
+        emission: a callable object (function or nn.Module) with signature:
+            Args:
+                latents: list of length (time + 1) where each element is a
+                    tensor [batch_size, num_particles, ...]
+                time: int
+            Returns: torch.distributions.Distribution or a dict thereof
         num_timesteps: int
         batch_size: int
 
