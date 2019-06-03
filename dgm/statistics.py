@@ -7,7 +7,7 @@ import torch
 def empirical_expectation(value, log_weight, f):
     """Empirical expectation.
 
-    input:
+    Args:
         value: torch.Tensor
             [batch_size, num_particles, value_dim_1, ..., value_dim_N] (or
             [batch_size, num_particles])
@@ -16,7 +16,8 @@ def empirical_expectation(value, log_weight, f):
             [batch_size, value_dim_1, ..., value_dim_N] (or
             [batch_size]) and returns a torch.Tensor
             [batch_size, dim_1, ..., dim_M] (or [batch_size])
-    output: empirical expectation torch.Tensor
+
+    Returns: empirical expectation torch.Tensor
         [batch_size, dim_1, ..., dim_M] (or [batch_size])
     """
 
@@ -46,12 +47,13 @@ def empirical_expectation(value, log_weight, f):
 def empirical_mean(value, log_weight):
     """Empirical mean.
 
-    input:
+    Args:
         value: torch.Tensor
             [batch_size, num_particles, dim_1, ..., dim_N] (or
             [batch_size, num_particles])
         log_weight: torch.Tensor [batch_size, num_particles]
-    output: empirical mean torch.Tensor
+
+    Returns: empirical mean torch.Tensor
         [batch_size, dim_1, ..., dim_N] (or [batch_size])
     """
 

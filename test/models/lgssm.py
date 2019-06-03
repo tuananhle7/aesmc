@@ -26,7 +26,7 @@ class Transition(nn.Module):
         return dgm.state.set_batch_shape_mode(
             torch.distributions.Normal(
                 self.mult * previous_latents[-1], self.scale),
-            dgm.state.DistributionBatchShapeMode.FULLY_EXPANDED)
+            dgm.state.BatchShapeMode.FULLY_EXPANDED)
 
 
 class Emission(nn.Module):
@@ -38,7 +38,7 @@ class Emission(nn.Module):
     def forward(self, latents=None, time=None):
         return dgm.state.set_batch_shape_mode(
             torch.distributions.Normal(self.mult * latents[-1], self.scale),
-            dgm.state.DistributionBatchShapeMode.FULLY_EXPANDED)
+            dgm.state.BatchShapeMode.FULLY_EXPANDED)
 
 
 class Proposal(nn.Module):
@@ -55,7 +55,7 @@ class Proposal(nn.Module):
                 torch.distributions.Normal(
                     loc=self.lin_0(observations[0].unsqueeze(-1)).squeeze(-1),
                     scale=self.scale_0),
-                dgm.state.DistributionBatchShapeMode.BATCH_EXPANDED)
+                dgm.state.BatchShapeMode.BATCH_EXPANDED)
         else:
             num_particles = previous_latents[-1].shape[1]
             return dgm.state.set_batch_shape_mode(
@@ -68,7 +68,7 @@ class Proposal(nn.Module):
                         dim=2
                     ).view(-1, 2)).squeeze(-1).view(-1, num_particles),
                     scale=self.scale_0),
-                dgm.state.DistributionBatchShapeMode.FULLY_EXPANDED)
+                dgm.state.BatchShapeMode.FULLY_EXPANDED)
 
 
 def lgssm_true_posterior(

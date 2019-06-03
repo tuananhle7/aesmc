@@ -10,73 +10,46 @@ class TestBatchShapeMode(unittest.TestCase):
         batch_size, num_particles = 2, 3
         dim1 = 4
         for batch_shape, inferred_batch_shape_mode, ambiguous in [
-            [(), state.DistributionBatchShapeMode.NOT_EXPANDED, False],
-            [
-                (batch_size,),
-                state.DistributionBatchShapeMode.BATCH_EXPANDED,
-                True
-            ],
-            [
-                (dim1,),
-                state.DistributionBatchShapeMode.NOT_EXPANDED,
-                False
-            ],
-            [
-                (batch_size, num_particles),
-                state.DistributionBatchShapeMode.FULLY_EXPANDED,
-                True
-            ],
-            [
-                (batch_size, dim1),
-                state.DistributionBatchShapeMode.BATCH_EXPANDED,
-                True
-            ],
-            [
-                (batch_size, num_particles, dim1),
-                state.DistributionBatchShapeMode.FULLY_EXPANDED,
-                True
-            ]
-        ]:
+            [(), state.BatchShapeMode.NOT_EXPANDED, False],
+            [(batch_size,), state.BatchShapeMode.BATCH_EXPANDED, True],
+            [(dim1,), state.BatchShapeMode.NOT_EXPANDED, False],
+            [(batch_size, num_particles), state.BatchShapeMode.FULLY_EXPANDED,
+             True],
+            [(batch_size, dim1), state.BatchShapeMode.BATCH_EXPANDED, True],
+            [(batch_size, num_particles, dim1),
+             state.BatchShapeMode.FULLY_EXPANDED, True]]:
             distribution = torch.distributions.Normal(
                 loc=torch.zeros(size=batch_shape),
-                scale=torch.ones(size=batch_shape)
-            )
+                scale=torch.ones(size=batch_shape))
             if ambiguous:
                 with self.assertWarns(RuntimeWarning):
                     self.assertEqual(
                         state.get_batch_shape_mode(
                             distribution, batch_size, num_particles
-                        ), inferred_batch_shape_mode
-                    )
+                        ), inferred_batch_shape_mode)
             else:
                 self.assertEqual(
                     state.get_batch_shape_mode(
                         distribution, batch_size, num_particles
-                    ), inferred_batch_shape_mode
-                )
+                    ), inferred_batch_shape_mode)
 
         # Explicit
         batch_size, num_particles = 2, 3
         dim1 = 4
         batch_shape = (batch_size, num_particles)
 
-        for batch_shape_mode in [
-            state.DistributionBatchShapeMode.NOT_EXPANDED,
-            state.DistributionBatchShapeMode.BATCH_EXPANDED,
-            state.DistributionBatchShapeMode.FULLY_EXPANDED
-        ]:
+        for batch_shape_mode in [state.BatchShapeMode.NOT_EXPANDED,
+                                 state.BatchShapeMode.BATCH_EXPANDED,
+                                 state.BatchShapeMode.FULLY_EXPANDED]:
             distribution = state.set_batch_shape_mode(
                 torch.distributions.Normal(
                     loc=torch.zeros(size=batch_shape),
-                    scale=torch.ones(size=batch_shape)
-                ), batch_shape_mode
-            )
+                    scale=torch.ones(size=batch_shape)),
+                batch_shape_mode)
             self.assertEqual(
                 state.get_batch_shape_mode(
-                    distribution, batch_size, num_particles
-                ),
-                batch_shape_mode
-            )
+                    distribution, batch_size, num_particles),
+                batch_shape_mode)
 
 
 # the following is a temporary implementation for taking sums and means across
@@ -94,8 +67,7 @@ def sum_dims(x, dims, keepdim=False):
             return x
         else:
             new_shape = np.array(original_shape)[np.array(
-                list(set(range(original_ndimension)) - set(dims))
-            )]
+                list(set(range(original_ndimension)) - set(dims)))]
             return x.view(*[int(s) for s in new_shape])
         return x
 
@@ -170,17 +142,17 @@ class TestSample(unittest.TestCase):
         )
         for batch_shape_mode, sample_size in [
             [
-                state.DistributionBatchShapeMode.NOT_EXPANDED,
+                state.BatchShapeMode.NOT_EXPANDED,
                 torch.Size([
                     batch_size, num_particles, batch_size, num_particles
                 ])
             ],
             [
-                state.DistributionBatchShapeMode.BATCH_EXPANDED,
+                state.BatchShapeMode.BATCH_EXPANDED,
                 torch.Size([batch_size, num_particles, num_particles])
             ],
             [
-                state.DistributionBatchShapeMode.FULLY_EXPANDED,
+                state.BatchShapeMode.FULLY_EXPANDED,
                 torch.Size([batch_size, num_particles])
             ]
         ]:
@@ -200,16 +172,16 @@ class TestSample(unittest.TestCase):
             distribution = torch.distributions.Normal(loc=loc, scale=scale)
             for batch_shape_mode, expanded_dimensions in [
                 [
-                    state.DistributionBatchShapeMode.NOT_EXPANDED,
+                    state.BatchShapeMode.NOT_EXPANDED,
                     # batch_size, num_particles, batch_size, num_particles
                     (0, 1)
                 ],
                 [
-                    state.DistributionBatchShapeMode.BATCH_EXPANDED,
+                    state.BatchShapeMode.BATCH_EXPANDED,
                     (1,)  # batch_size, num_particles, num_particles
                 ],
                 [
-                    state.DistributionBatchShapeMode.FULLY_EXPANDED,
+                    state.BatchShapeMode.FULLY_EXPANDED,
                     ()  # batch_size, num_particles
                 ]
             ]:
@@ -296,75 +268,6 @@ class TestLogProb(unittest.TestCase):
                     )
 
 
-# class TestLogProbNonReparam(unittest.TestCase):
-#     def test_dimensions(self):
-#         batch_size, num_particles = 1, 2
-#         distribution = torch.distributions.Normal(
-#             loc=torch.zeros(3, 4), scale=torch.ones(3, 4)
-#         )
-#         value = torch.rand(batch_size, num_particles, 3, 4)
-#         lp = state.log_prob(distribution, value, non_reparam=True)
-#         self.assertEqual(lp.size(), torch.Size([batch_size, num_particles]))
-#
-#         batch_size, num_particles = 1, 2
-#         distribution = torch.distributions.Normal(
-#             loc=torch.zeros(batch_size, num_particles, 3, 4),
-#             scale=torch.ones(batch_size, num_particles, 3, 4)
-#         )
-#         value = torch.rand(batch_size, num_particles, 3, 4)
-#         lp = state.log_prob(distribution, value)
-#         self.assertEqual(lp.size(), torch.Size([batch_size, num_particles]))
-#
-#         categorical = torch.distributions.Categorical(
-#             probs=torch.Tensor([0.2, 0.3, 0.5])
-#         )
-#         categorical_value = torch.Tensor([
-#             [1, 0, 2],
-#             [0, 1, 2]
-#         ])
-#         batch_size, num_particles = categorical_value.size()
-#         normal = torch.distributions.Normal(
-#             loc=torch.zeros(batch_size, num_particles, 3, 4),
-#             scale=torch.ones(batch_size, num_particles, 3, 4)
-#         )
-#         normal_value = torch.rand(batch_size, num_particles, 3, 4)
-#         distribution = {'categorical': categorical, 'normal': normal}
-#         value = {'categorical': categorical_value, 'normal': normal_value}
-#         lp = state.log_prob(distribution, value, non_reparam=True)
-#         self.assertEqual(lp.size(), torch.Size([batch_size, num_particles]))
-#
-#     def test_value(self):
-#         batch_size, num_particles = 1, 2
-#         distribution = torch.distributions.Normal(
-#             loc=torch.zeros(3, 4), scale=torch.ones(3, 4)
-#         )
-#         value = torch.ones(batch_size, num_particles, 3, 4)
-#         lp = state.log_prob(distribution, value, non_reparam=True)
-#         np.testing.assert_equal(
-#             lp.numpy(), np.zeros([batch_size, num_particles])
-#         )
-#
-#         categorical = torch.distributions.Categorical(
-#             probs=torch.Tensor([0.2, 0.3, 0.5])
-#         )
-#         categorical_value = torch.Tensor([
-#             [1, 0, 2],
-#             [0, 1, 2]
-#         ])
-#         batch_size, num_particles = categorical_value.size()
-#         normal = torch.distributions.Normal(
-#             loc=torch.zeros(batch_size, num_particles, 3, 4),
-#             scale=torch.ones(batch_size, num_particles, 3, 4)
-#         )
-#         normal_value = torch.rand(batch_size, num_particles, 3, 4)
-#         distribution = {'categorical': categorical, 'normal': normal}
-#         value = {'categorical': categorical_value, 'normal': normal_value}
-#         lp = state.log_prob(distribution, value, non_reparam=True)
-#         np.testing.assert_equal(
-#             lp.numpy(), state.log_prob(categorical, categorical_value).numpy()
-#         )
-#
-#
 class TestResample(unittest.TestCase):
     def test_dimensions(self):
         ancestral_index = torch.zeros(3, 2).long()

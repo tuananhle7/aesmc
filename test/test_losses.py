@@ -95,7 +95,7 @@ class MeanStdAccum():
         )
 
 
-class TestAutoEncoder(unittest.TestCase):
+class TestModels(unittest.TestCase):
     def test_gaussian(self):
         from .models import gaussian
 
