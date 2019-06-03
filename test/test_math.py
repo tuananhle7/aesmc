@@ -4,54 +4,6 @@ import torch
 import unittest
 
 
-class TestLogsumexp(unittest.TestCase):
-    def test_dimensions(self):
-        self.assertEqual(
-            math.logsumexp(
-                torch.rand(2, 3, 4, 5),
-                dim=2
-            ).size(),
-            torch.Size([2, 3, 5])
-        )
-        self.assertEqual(
-            math.logsumexp(torch.rand(3)).size(),
-            torch.Size([])
-        )
-        self.assertEqual(
-            math.logsumexp(torch.rand(1)).size(),
-            torch.Size([])
-        )
-        self.assertEqual(
-            math.logsumexp(
-                torch.rand(2, 3, 4, 5),
-                dim=2,
-                keepdim=True
-            ).size(),
-            torch.Size([2, 3, 1, 5])
-        )
-        self.assertEqual(
-            math.logsumexp(torch.rand(3), keepdim=True).size(),
-            torch.Size([1])
-        )
-        self.assertEqual(
-            math.logsumexp(torch.rand(1), keepdim=True).size(),
-            torch.Size([1])
-        )
-
-    def test_type(self):
-        self.assertIsInstance(
-            math.logsumexp(torch.rand(1)),
-            torch.Tensor
-        )
-
-    def test_value(self):
-        self.assertAlmostEqual(
-            math.logsumexp(torch.Tensor([1, 2, 3])).item(),
-            np.log(np.exp(1) + np.exp(2) + np.exp(3)),
-            places=6  # Fails with 7 places
-        )
-
-
 class TestLognormexp(unittest.TestCase):
     def test_dimensions(self):
         self.assertEqual(

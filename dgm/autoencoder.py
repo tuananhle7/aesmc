@@ -1,9 +1,6 @@
 from . import inference
-from . import math
-from . import state
 
 import enum
-import numpy as np
 import torch
 import torch.nn as nn
 
@@ -89,21 +86,6 @@ class AutoEncoder(nn.Module):
             return_log_weights=False,
             return_ancestral_indices=False
         )
-
         elbo = inference_result['log_marginal_likelihood']
-
-        # estimator_latents = inference_result['original_latents']  \
-        #                     if inference_algorithm == inference.InferenceAlgorithm.SMC \
-        #                     else inference_result['latents']
-        # estimator = (inference.latents_log_prob(
-        #     self.proposal,
-        #     observations,
-        #     estimator_latents,
-        #     inference_result['ancestral_indices'],
-        #     non_reparam=True
-        # ) + inference.ancestral_indices_log_prob(
-        #     inference_result['ancestral_indices'],
-        #     inference_result['log_weights']
-        # )) * inference_result['log_marginal_likelihood'].detach()
 
         return elbo

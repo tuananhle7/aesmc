@@ -85,8 +85,8 @@ def log_ess(log_weight):
     """
     dim = 1 if log_weight.ndimension() == 2 else 0
 
-    return 2 * math.logsumexp(log_weight, dim=dim) - \
-        math.logsumexp(2 * log_weight, dim=dim)
+    return 2 * torch.logsumexp(log_weight, dim=dim) - \
+        torch.logsumexp(2 * log_weight, dim=dim)
 
 
 def ess(log_weight):
@@ -100,76 +100,6 @@ def ess(log_weight):
     """
 
     return torch.exp(log_ess(log_weight))
-
-
-# NOTE: old and untested
-def infer_reconstruct_predict(
-    inference_algorithm, observations, initial, transition, emission, proposal,
-    num_particles, num_predictions
-):
-    """Infer, reconstruct and predict given a generative model, observations
-    and an inference algorithm.
-
-    More efficient than calling reconstruct_observations and
-    predict_observations in turn.
-
-    Args:
-        inference_algorithm: InferenceAlgorithm value
-        observations: list of tensors [batch_size, dim1, ..., dimN] or
-            dicts thereof
-        initial: dgm.model.InitialDistribution object
-        transition: dgm.model.TransitionDistribution object
-        emission: dgm.model.EmissionDistribution object
-        proposal: dgm.model.ProposalDistribution object
-        num_particles: int; number of particles
-        num_predictions: int; number of timesteps to predict
-    Returns:
-        latents: list of tensors [batch_size, ...] or dicts thereof
-        reconstructed_observations: list of tensors
-            [batch_size, dim1, ..., dimN] or dicts thereof
-        predicted_latents: list of tensors [batch_size, ...] or
-            dicts thereof
-        predicted_observations: list of tensors
-            [batch_size, dim1, ..., dimN] or dicts thereof
-        log_weight: torch.Tensor [batch_size, num_particles]
-    """
-
-    batch_size = next(iter(observations[0].values())).size(0) \
-        if isinstance(observations[0], dict) else observations[0].size(0)
-    num_timesteps = len(observations)
-
-    inference_result = inference.infer(
-        inference_algorithm=inference_algorithm,
-        observations=observations,
-        initial=initial,
-        transition=transition,
-        emission=emission,
-        proposal=proposal,
-        num_particles=num_particles,
-        return_log_marginal_likelihood=False,
-        return_latents=True,
-        return_original_latents=False,
-        return_log_weight=True,
-        return_log_weights=False,
-        return_ancestral_indices=False)
-
-    log_weight = inference_result['log_weight']
-    latents = inference_result['latents']
-    reconstructed_observations = []
-    for time in range(num_timesteps):
-        reconstructed_observations.append(
-            state.sample(emission(latents[:time + 1], time=time),
-                         batch_size, num_particles))
-    predicted_observations = []
-    for time in range(num_timesteps, num_timesteps + num_predictions):
-        latents.append(state.sample(transition(latents, time=time),
-                       batch_size, num_particles))
-        predicted_observations.append(
-            state.sample(emission(latents, time=time),
-                         batch_size, num_particles))
-
-    return latents[:num_timesteps], reconstructed_observations, \
-        latents[num_timesteps:], predicted_observations, log_weight
 
 
 # TODO: test
