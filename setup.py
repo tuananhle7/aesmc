@@ -4,7 +4,7 @@ import os
 import sys
 import setuptools
 
-PACKAGE_NAME = 'dgm'
+PACKAGE_NAME = 'aesmc'
 MINIMUM_PYTHON_VERSION = 3, 5
 
 
@@ -29,11 +29,6 @@ check_python_version()
 setuptools.setup(
     name=PACKAGE_NAME,
     version=read_package_variable('__version__'),
-    description='Lightweight library for Deep Generative Models',
-    packages=['dgm'],
-    install_requires=[
-        'torch',
-        'pykalman',
-        'matplotlib'
-    ]
-)
+    description='Library for Auto-Encoding Sequential Monte Carlo',
+    packages=['aesmc'],
+    install_requires=['torch', 'pykalman', 'matplotlib'])
