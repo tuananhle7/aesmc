@@ -1,4 +1,4 @@
-import dgm.statistics as stats
+import aesmc.statistics as stats
 import numpy as np
 import torch
 import torch.nn as nn

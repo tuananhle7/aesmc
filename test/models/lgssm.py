@@ -1,5 +1,5 @@
 import copy
-import dgm
+import aesmc
 import numpy as np
 import pykalman
 import torch
@@ -23,10 +23,10 @@ class Transition(nn.Module):
         self.scale = scale
 
     def forward(self, previous_latents=None, time=None):
-        return dgm.state.set_batch_shape_mode(
+        return aesmc.state.set_batch_shape_mode(
             torch.distributions.Normal(
                 self.mult * previous_latents[-1], self.scale),
-            dgm.state.BatchShapeMode.FULLY_EXPANDED)
+            aesmc.state.BatchShapeMode.FULLY_EXPANDED)
 
 
 class Emission(nn.Module):
@@ -36,9 +36,9 @@ class Emission(nn.Module):
         self.scale = scale
 
     def forward(self, latents=None, time=None):
-        return dgm.state.set_batch_shape_mode(
+        return aesmc.state.set_batch_shape_mode(
             torch.distributions.Normal(self.mult * latents[-1], self.scale),
-            dgm.state.BatchShapeMode.FULLY_EXPANDED)
+            aesmc.state.BatchShapeMode.FULLY_EXPANDED)
 
 
 class Proposal(nn.Module):
@@ -51,14 +51,14 @@ class Proposal(nn.Module):
 
     def forward(self, previous_latents=None, time=None, observations=None):
         if time == 0:
-            return dgm.state.set_batch_shape_mode(
+            return aesmc.state.set_batch_shape_mode(
                 torch.distributions.Normal(
                     loc=self.lin_0(observations[0].unsqueeze(-1)).squeeze(-1),
                     scale=self.scale_0),
-                dgm.state.BatchShapeMode.BATCH_EXPANDED)
+                aesmc.state.BatchShapeMode.BATCH_EXPANDED)
         else:
             num_particles = previous_latents[-1].shape[1]
-            return dgm.state.set_batch_shape_mode(
+            return aesmc.state.set_batch_shape_mode(
                 torch.distributions.Normal(
                     loc=self.lin_t(torch.cat(
                         [previous_latents[-1].unsqueeze(-1),
@@ -68,20 +68,12 @@ class Proposal(nn.Module):
                         dim=2
                     ).view(-1, 2)).squeeze(-1).view(-1, num_particles),
                     scale=self.scale_0),
-                dgm.state.BatchShapeMode.FULLY_EXPANDED)
+                aesmc.state.BatchShapeMode.FULLY_EXPANDED)
 
 
-def lgssm_true_posterior(
-    observations,
-    initial_loc,
-    initial_scale,
-    transition_mult,
-    transition_bias,
-    transition_scale,
-    emission_mult,
-    emission_bias,
-    emission_scale
-):
+def lgssm_true_posterior(observations, initial_loc, initial_scale,
+                         transition_mult, transition_bias, transition_scale,
+                         emission_mult, emission_bias, emission_scale):
     kf = pykalman.KalmanFilter(
         initial_state_mean=[initial_loc],
         initial_state_covariance=[[initial_scale**2]],
@@ -112,11 +104,11 @@ class TrainingStats(object):
         self.true_transition = Transition(true_transition_mult,
                                           transition_scale)
         self.true_emission = Emission(true_emission_mult, emission_scale)
-        dataloader = dgm.train.get_synthetic_dataloader(self.initial,
-                                                        self.true_transition,
-                                                        self.true_emission,
-                                                        num_timesteps,
-                                                        num_test_obs)
+        dataloader = aesmc.train.get_synthetic_dataloader(self.initial,
+                                                          self.true_transition,
+                                                          self.true_emission,
+                                                          num_timesteps,
+                                                          num_test_obs)
         self.test_obs = next(iter(dataloader))
         self.true_posterior_means = [None] * num_test_obs
         for test_obs_idx in range(num_test_obs):
@@ -135,11 +127,11 @@ class TrainingStats(object):
                 np.array([transition.mult.item(), emission.mult.item()]) -
                 np.array([self.true_transition_mult, self.true_emission_mult])
             ))
-            inference_result = dgm.inference.infer(
+            inference_result = aesmc.inference.infer(
                 'is', self.test_obs, self.initial,
                 self.true_transition, self.true_emission, proposal,
                 self.test_inference_num_particles)
-            posterior_means = dgm.statistics.empirical_mean(
+            posterior_means = aesmc.statistics.empirical_mean(
                 torch.cat([latent.unsqueeze(-1) for
                            latent in inference_result['latents']], dim=2),
                 inference_result['log_weight']).detach().numpy()

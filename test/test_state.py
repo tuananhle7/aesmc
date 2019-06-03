@@ -1,4 +1,4 @@
-import dgm.state as state
+import aesmc.state as state
 import numpy as np
 import torch
 import unittest

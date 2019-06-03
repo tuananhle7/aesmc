@@ -1,98 +1,10 @@
-import dgm
-import dgm.losses as losses
+import aesmc.train as train
+import aesmc.losses as losses
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
 import torch.nn as nn
 import unittest
-
-
-class MyInitialNetwork(nn.Module):
-    def __init__(self, initial_mean):
-        super(MyInitialNetwork, self).__init__()
-        self.mean = nn.Parameter(torch.Tensor([initial_mean]))
-        self.std = 1
-
-    def __call__(self):
-        return torch.distributions.Normal(loc=self.mean, scale=self.std)
-
-
-class MyTransitionNetwork(nn.Module):
-    def __init__(self, transition_multiplier):
-        super(MyTransitionNetwork, self).__init__()
-        self.multiplier = nn.Parameter(torch.Tensor([transition_multiplier]))
-        self.std = 1
-
-    def __call__(self, previous_latents=None, time=None):
-        return torch.distributions.Normal(
-            loc=self.multiplier * previous_latents[-1], scale=self.std)
-
-
-class MyEmissionNetwork(nn.Module):
-    def __init__(self, emission_multiplier):
-        super(MyEmissionNetwork, self).__init__()
-        self.multiplier = nn.Parameter(torch.Tensor([emission_multiplier]))
-        self.std = 1
-
-    def __call__(self, latents=None, time=None):
-        return torch.distributions.Normal(loc=self.multiplier * latents[-1],
-                                          scale=self.std)
-
-
-class MyProposalNetwork(nn.Module):
-    def __init__(self, proposal_multiplier):
-        super(MyProposalNetwork, self).__init__()
-        self.multiplier = nn.Parameter(torch.Tensor([proposal_multiplier]))
-        self.std = 1
-
-    def forward(self, previous_latents=None, time=None, observations=None):
-        if time == 0:
-            return torch.distributions.Normal(loc=0, scale=1)
-        else:
-            return torch.distributions.Normal(
-                loc=self.multiplier * previous_latents[-1], scale=self.std)
-
-
-class MeanStdAccum():
-    def __init__(self):
-        self.count = 0
-        self.means = None
-        self.M2s = None
-
-    def update(self, new_variables):
-        if self.count == 0:
-            self.count = 1
-            self.means = []
-            self.M2s = []
-            for new_var in new_variables:
-                self.means.append(new_var.data)
-                self.M2s.append(new_var.data.new(new_var.size()).fill_(0))
-        else:
-            self.count = self.count + 1
-            for new_var_idx, new_var in enumerate(new_variables):
-                delta = new_var.data - self.means[new_var_idx]
-                self.means[new_var_idx] = self.means[new_var_idx] + delta \
-                    / self.count
-                delta_2 = new_var.data - self.means[new_var_idx]
-                self.M2s[new_var_idx] = self.M2s[new_var_idx] + delta * delta_2
-
-    def means_stds(self):
-        if self.count < 2:
-            raise ArithmeticError('Need more than 1 value. Have {}'.format(
-                self.count))
-        else:
-            stds = []
-            for i in range(len(self.means)):
-                stds.append(torch.sqrt(self.M2s[i] / self.count))
-            return self.means, stds
-
-    def avg_of_means_stds(self):
-        means, stds = self.means_stds()
-        num_parameters = np.sum([len(p) for p in means])
-        return (
-            np.sum([torch.sum(p) for p in means]) / num_parameters,
-            np.sum([torch.sum(p) for p in stds]) / num_parameters
-        )
 
 
 class TestModels(unittest.TestCase):
@@ -125,19 +37,19 @@ class TestModels(unittest.TestCase):
         likelihood = gaussian.Likelihood(obs_std_init)
         inference_network = gaussian.InferenceNetwork(
             q_init_mult, q_init_bias, q_init_std)
-        dgm.train.train(dataloader=dgm.train.get_synthetic_dataloader(
-                            true_prior, None, true_likelihood, 1, batch_size),
-                        num_particles=num_particles,
-                        algorithm='iwae',
-                        initial=prior,
-                        transition=None,
-                        emission=likelihood,
-                        proposal=inference_network,
-                        num_epochs=1,
-                        num_iterations_per_epoch=num_iterations,
-                        optimizer_algorithm=torch.optim.SGD,
-                        optimizer_kwargs={'lr': 0.01},
-                        callback=training_stats)
+        train.train(dataloader=train.get_synthetic_dataloader(
+                        true_prior, None, true_likelihood, 1, batch_size),
+                    num_particles=num_particles,
+                    algorithm='iwae',
+                    initial=prior,
+                    transition=None,
+                    emission=likelihood,
+                    proposal=inference_network,
+                    num_epochs=1,
+                    num_iterations_per_epoch=num_iterations,
+                    optimizer_algorithm=torch.optim.SGD,
+                    optimizer_kwargs={'lr': 0.01},
+                    callback=training_stats)
 
         fig, axs = plt.subplots(5, 1, sharex=True, sharey=True)
         fig.set_size_inches(10, 8)
@@ -197,7 +109,7 @@ class TestModels(unittest.TestCase):
             (emission_scale**2 + transition_scale**2 * true_emission_mult**2)
             * true_emission_mult * transition_scale**2)
         algorithms = ['iwae', 'aesmc']
-        dataloader = dgm.train.get_synthetic_dataloader(
+        dataloader = train.get_synthetic_dataloader(
             lgssm.Initial(initial_loc, initial_scale),
             lgssm.Transition(true_transition_mult, transition_scale),
             lgssm.Emission(true_emission_mult, emission_scale),
@@ -209,19 +121,19 @@ class TestModels(unittest.TestCase):
                 transition_scale, true_emission_mult, emission_scale,
                 num_timesteps, num_test_obs, test_inference_num_particles,
                 saving_interval, logging_interval)
-            dgm.train.train(dataloader=dataloader,
-                            num_particles=num_particles,
-                            algorithm=algorithm,
-                            initial=lgssm.Initial(initial_loc, initial_scale),
-                            transition=lgssm.Transition(init_transition_mult,
-                                                        transition_scale),
-                            emission=lgssm.Emission(init_emission_mult,
-                                                    emission_scale),
-                            proposal=lgssm.Proposal(optimal_proposal_scale_0,
-                                                    optimal_proposal_scale_t),
-                            num_epochs=1,
-                            num_iterations_per_epoch=num_iterations,
-                            callback=training_stats)
+            train.train(dataloader=dataloader,
+                        num_particles=num_particles,
+                        algorithm=algorithm,
+                        initial=lgssm.Initial(initial_loc, initial_scale),
+                        transition=lgssm.Transition(init_transition_mult,
+                                                    transition_scale),
+                        emission=lgssm.Emission(init_emission_mult,
+                                                emission_scale),
+                        proposal=lgssm.Proposal(optimal_proposal_scale_0,
+                                                optimal_proposal_scale_t),
+                        num_epochs=1,
+                        num_iterations_per_epoch=num_iterations,
+                        callback=training_stats)
             axs[0].plot(training_stats.iteration_idx_history,
                         training_stats.p_l2_history,
                         label=algorithm)

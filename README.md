@@ -2,8 +2,8 @@
 
 ## Installation
 ```
-git clone git@github.com:tuananhle7/dgm.git
-cd dgm
+git clone git@github.com:tuananhle7/aesmc.git
+cd aesmc
 pip install .
 ```
 

@@ -1,6 +1,6 @@
-import dgm.inference as inference
-import dgm.state as state
-import dgm.statistics as stats
+import aesmc.inference as inference
+import aesmc.state as state
+import aesmc.statistics as stats
 import matplotlib.pyplot as plt
 import numpy as np
 import scipy.stats

@@ -1,4 +1,4 @@
-import dgm.math as math
+import aesmc.math as math
 import numpy as np
 import torch
 import unittest
