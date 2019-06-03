@@ -1,5 +1,5 @@
 import dgm
-import dgm.autoencoder as ae
+import dgm.losses as losses
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
@@ -71,13 +71,15 @@ class MeanStdAccum():
             self.count = self.count + 1
             for new_var_idx, new_var in enumerate(new_variables):
                 delta = new_var.data - self.means[new_var_idx]
-                self.means[new_var_idx] = self.means[new_var_idx] + delta / self.count
+                self.means[new_var_idx] = self.means[new_var_idx] + delta \
+                    / self.count
                 delta_2 = new_var.data - self.means[new_var_idx]
                 self.M2s[new_var_idx] = self.M2s[new_var_idx] + delta * delta_2
 
     def means_stds(self):
         if self.count < 2:
-            raise ArithmeticError('Need more than 1 value. Have {}'.format(self.count))
+            raise ArithmeticError('Need more than 1 value. Have {}'.format(
+                self.count))
         else:
             stds = []
             for i in range(len(self.means)):
@@ -94,35 +96,6 @@ class MeanStdAccum():
 
 
 class TestAutoEncoder(unittest.TestCase):
-    def test_dimensions(self):
-        batch_size = 4
-        num_particles = 5
-        num_timesteps = 6
-        observations = list(torch.rand(num_timesteps, batch_size))
-
-        my_initial_network = MyInitialNetwork(0)
-        my_transition_network = MyTransitionNetwork(1.2)
-        my_emission_network = MyEmissionNetwork(0.9)
-        my_proposal_network = MyProposalNetwork(1.1)
-        my_auto_encoder = ae.AutoEncoder(
-            initial=my_initial_network,
-            transition=my_transition_network,
-            emission=my_emission_network,
-            proposal=my_proposal_network,
-        )
-
-        elbo = my_auto_encoder.forward(
-            observations=observations,
-            num_particles=num_particles,
-            autoencoder_algorithm=ae.AutoencoderAlgorithm.AESMC,
-        )
-        self.assertEqual(elbo.size(), torch.Size([batch_size]))
-        torch.mean(elbo).backward()
-        self.assertEqual(
-            my_initial_network.mean.size(),
-            my_initial_network.mean.grad.size()
-        )
-
     def test_gaussian(self):
         from .models import gaussian
 
@@ -152,20 +125,19 @@ class TestAutoEncoder(unittest.TestCase):
         likelihood = gaussian.Likelihood(obs_std_init)
         inference_network = gaussian.InferenceNetwork(
             q_init_mult, q_init_bias, q_init_std)
-        autoencoder = ae.AutoEncoder(
-            prior, None, likelihood, inference_network)
-        dgm.train.train_autoencoder(
-            autoencoder,
-            dgm.train.get_synthetic_dataloader(
-                true_prior, None, true_likelihood, 1, batch_size),
-            autoencoder_algorithm=ae.AutoencoderAlgorithm.IWAE,
-            num_epochs=1,
-            num_iterations_per_epoch=num_iterations,
-            num_particles=num_particles,
-            optimizer_algorithm=torch.optim.SGD,
-            optimizer_kwargs={'lr': 0.01},
-            callback=training_stats
-        )
+        dgm.train.train(dataloader=dgm.train.get_synthetic_dataloader(
+                            true_prior, None, true_likelihood, 1, batch_size),
+                        num_particles=num_particles,
+                        algorithm='iwae',
+                        initial=prior,
+                        transition=None,
+                        emission=likelihood,
+                        proposal=inference_network,
+                        num_epochs=1,
+                        num_iterations_per_epoch=num_iterations,
+                        optimizer_algorithm=torch.optim.SGD,
+                        optimizer_kwargs={'lr': 0.01},
+                        callback=training_stats)
 
         fig, axs = plt.subplots(5, 1, sharex=True, sharey=True)
         fig.set_size_inches(10, 8)
@@ -180,12 +152,12 @@ class TestAutoEncoder(unittest.TestCase):
                 q_true_std]
 
         for ax, data_, true_, ylabel in zip(
-            axs, data, true, ['$\mu_0$', '$\sigma$', '$a$', '$b$', '$c$']):
+            axs, data, true, ['$\mu_0$', '$\sigma$', '$a$', '$b$', '$c$']
+        ):
             ax.plot(training_stats.iteration_idx_history, data_)
             ax.axhline(true_, color='black')
             ax.set_ylabel(ylabel)
             #  self.assertAlmostEqual(data[-1], true, delta=1e-1)
-
 
         axs[-1].set_xlabel('Iteration')
         fig.tight_layout()
@@ -208,7 +180,7 @@ class TestAutoEncoder(unittest.TestCase):
         emission_scale = 0.01
         num_timesteps = 200
         num_test_obs = 10
-        test_inference_num_particles = 100
+        test_inference_num_particles = 1000
         saving_interval = 10
         logging_interval = 10
         batch_size = 10
@@ -219,47 +191,43 @@ class TestAutoEncoder(unittest.TestCase):
         optimal_proposal_scale_0 = np.sqrt(
             initial_scale**2 - initial_scale**2 * true_emission_mult /
             (emission_scale**2 + initial_scale**2 * true_emission_mult**2) *
-            true_emission_mult * initial_scale**2
-        )
+            true_emission_mult * initial_scale**2)
         optimal_proposal_scale_t = np.sqrt(
             transition_scale**2 - transition_scale**2 * true_emission_mult /
             (emission_scale**2 + transition_scale**2 * true_emission_mult**2)
-            * true_emission_mult * transition_scale**2
-        )
-        autoencoder_algorithms = [dgm.autoencoder.AutoencoderAlgorithm.IWAE,
-                                  dgm.autoencoder.AutoencoderAlgorithm.AESMC]
-        names = ['IWAE', 'AESMC']
+            * true_emission_mult * transition_scale**2)
+        algorithms = ['iwae', 'aesmc']
         dataloader = dgm.train.get_synthetic_dataloader(
             lgssm.Initial(initial_loc, initial_scale),
             lgssm.Transition(true_transition_mult, transition_scale),
             lgssm.Emission(true_emission_mult, emission_scale),
-            num_timesteps, batch_size
-        )
+            num_timesteps, batch_size)
         fig, axs = plt.subplots(2, 1, sharex=True)
-        for name, autoencoder_algorithm in zip(names, autoencoder_algorithms):
+        for algorithm in algorithms:
             training_stats = lgssm.TrainingStats(
                 initial_loc, initial_scale, true_transition_mult,
                 transition_scale, true_emission_mult, emission_scale,
                 num_timesteps, num_test_obs, test_inference_num_particles,
-                saving_interval, logging_interval
-            )
-            autoencoder = dgm.autoencoder.AutoEncoder(
-                lgssm.Initial(initial_loc, initial_scale),
-                lgssm.Transition(init_transition_mult, transition_scale),
-                lgssm.Emission(init_emission_mult, emission_scale),
-                lgssm.Proposal(optimal_proposal_scale_0,
-                               optimal_proposal_scale_t)
-            )
-            dgm.train.train_autoencoder(
-                autoencoder, dataloader, autoencoder_algorithm, 1,
-                num_iterations, num_particles, callback=training_stats
-            )
+                saving_interval, logging_interval)
+            dgm.train.train(dataloader=dataloader,
+                            num_particles=num_particles,
+                            algorithm=algorithm,
+                            initial=lgssm.Initial(initial_loc, initial_scale),
+                            transition=lgssm.Transition(init_transition_mult,
+                                                        transition_scale),
+                            emission=lgssm.Emission(init_emission_mult,
+                                                    emission_scale),
+                            proposal=lgssm.Proposal(optimal_proposal_scale_0,
+                                                    optimal_proposal_scale_t),
+                            num_epochs=1,
+                            num_iterations_per_epoch=num_iterations,
+                            callback=training_stats)
             axs[0].plot(training_stats.iteration_idx_history,
                         training_stats.p_l2_history,
-                        label=name)
+                        label=algorithm)
             axs[1].plot(training_stats.iteration_idx_history,
                         training_stats.q_l2_history,
-                        label=name)
+                        label=algorithm)
         axs[0].set_ylabel('$||\\theta - \\theta_{true}||$')
         axs[1].set_ylabel('Avg. L2 of\nmarginal posterior means')
         axs[-1].set_xlabel('Iteration')

@@ -200,7 +200,7 @@ class TestInfer(unittest.TestCase):
     def test_importance_sampling(self):
         # Inference using importance sampling
         inference_result = inference.infer(
-            inference_algorithm=inference.InferenceAlgorithm.IS,
+            inference_algorithm='is',
             observations=self.observations_tensor,
             initial=self.my_initial_distribution,
             transition=self.my_transition_distribution,
@@ -289,7 +289,7 @@ class TestInfer(unittest.TestCase):
     def test_smc(self):
         # Inference using SMC
         inference_result = inference.infer(
-            inference_algorithm=inference.InferenceAlgorithm.SMC,
+            inference_algorithm='smc',
             observations=self.observations_tensor,
             initial=self.my_initial_distribution,
             transition=self.my_transition_distribution,

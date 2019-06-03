@@ -126,34 +126,26 @@ class TrainingStats(object):
                                      self.true_transition_mult, 0,
                                      transition_scale, self.true_emission_mult,
                                      0, emission_scale)[0],
-                (-1)
-            )
+                (-1,))
 
-    def __call__(self, epoch_idx, epoch_iteration_idx, elbo, loss, autoencoder):
+    def __call__(self, epoch_idx, epoch_iteration_idx, loss, initial,
+                 transition, emission, proposal):
         if epoch_iteration_idx % self.saving_interval == 0:
             self.p_l2_history.append(np.linalg.norm(
-                np.array([autoencoder.transition.mult.item(),
-                          autoencoder.emission.mult.item()]) -
-                np.array([self.true_transition_mult,
-                          self.true_emission_mult])
+                np.array([transition.mult.item(), emission.mult.item()]) -
+                np.array([self.true_transition_mult, self.true_emission_mult])
             ))
             inference_result = dgm.inference.infer(
-                dgm.inference.InferenceAlgorithm.IS,
-                self.test_obs, self.initial, self.true_transition,
-                self.true_emission, autoencoder.proposal,
-                self.test_inference_num_particles
-            )
+                'is', self.test_obs, self.initial,
+                self.true_transition, self.true_emission, proposal,
+                self.test_inference_num_particles)
             posterior_means = dgm.statistics.empirical_mean(
-                torch.cat([latent.unsqueeze(-1)
-                           for latent in inference_result['latents']],
-                          dim=2),
-                inference_result['log_weight']
-            ).detach().numpy()
-            # import pdb; pdb.set_trace()
+                torch.cat([latent.unsqueeze(-1) for
+                           latent in inference_result['latents']], dim=2),
+                inference_result['log_weight']).detach().numpy()
             self.q_l2_history.append(np.mean(np.linalg.norm(
-                self.true_posterior_means - posterior_means, axis=1
-            )))
+                self.true_posterior_means - posterior_means, axis=1)))
             self.iteration_idx_history.append(epoch_iteration_idx)
 
         if epoch_iteration_idx % self.logging_interval == 0:
-            print('Iteration: {}'.format(epoch_iteration_idx))
+            print('Iteration {}: Loss = {}'.format(epoch_iteration_idx, loss))

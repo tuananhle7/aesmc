@@ -56,22 +56,18 @@ class TrainingStats(object):
         self.q_bias_history = []
         self.q_std_history = []
         self.iteration_idx_history = []
-        self.elbo_history = []
+        self.loss_history = []
         self.logging_interval = logging_interval
 
-    def __call__(self, epoch_idx, epoch_iteration_idx, elbo, loss, autoencoder):
-        self.prior_mean_history.append(autoencoder.initial.mean.item())
-        self.obs_std_history.append(
-            torch.exp(autoencoder.emission.log_std).item()
-        )
-        self.q_mult_history.append(autoencoder.proposal.mult.item())
-        self.q_bias_history.append(autoencoder.proposal.bias.item())
-        self.q_std_history.append(
-            torch.exp(autoencoder.proposal.log_std).item()
-        )
-        elbo = torch.mean(elbo)
-        self.elbo_history.append(float(elbo.data.numpy()))
+    def __call__(self, epoch_idx, epoch_iteration_idx, loss, initial,
+                 transition, emission, proposal):
+        self.prior_mean_history.append(initial.mean.item())
+        self.obs_std_history.append(torch.exp(emission.log_std).item())
+        self.q_mult_history.append(proposal.mult.item())
+        self.q_bias_history.append(proposal.bias.item())
+        self.q_std_history.append(torch.exp(proposal.log_std).item())
+        self.loss_history.append(loss)
 
         self.iteration_idx_history.append(epoch_iteration_idx)
         if epoch_iteration_idx % self.logging_interval == 0:
-            print('Iteration: {} - Elbo: {}'.format(epoch_iteration_idx, torch.mean(elbo)))
+            print('Iteration: {} - Loss: {}'.format(epoch_iteration_idx, loss))
