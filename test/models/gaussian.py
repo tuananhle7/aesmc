@@ -19,7 +19,7 @@ class Likelihood(nn.Module):
         self.log_std = nn.Parameter(
             torch.log(torch.tensor(init_std, dtype=torch.float)))
 
-    def forward(self, latents=None, time=None):
+    def forward(self, latents=None, time=None, previous_observations=None):
         return torch.distributions.Normal(
             loc=latents[-1], scale=torch.exp(self.log_std))
 

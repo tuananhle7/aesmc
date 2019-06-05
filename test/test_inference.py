@@ -84,7 +84,7 @@ class TestSampleAncestralIndex(unittest.TestCase):
         )
 
 
-class MyInitialDistribution:
+class Initial:
     def __init__(self, initial_mean, initial_variance):
         self.initial_mean = initial_mean
         self.initial_variance = initial_variance
@@ -94,34 +94,35 @@ class MyInitialDistribution:
                                           scale=np.sqrt(self.initial_variance))
 
 
-class MyTransitionDistribution:
+class Transition:
     def __init__(self, transition_matrix, transition_covariance,
                  transition_offset):
         self.transition_matrix = transition_matrix
         self.transition_covariance = transition_covariance
         self.transition_offset = transition_offset
 
-    def __call__(self, previous_latents=None, time=None):
+    def __call__(self, previous_latents=None, time=None,
+                 previous_observations=None):
         return torch.distributions.Normal(
             loc=previous_latents[-1] * self.transition_matrix +
             self.transition_offset,
             scale=np.sqrt(self.transition_covariance))
 
 
-class MyEmissionDistribution:
+class Emission:
     def __init__(self, emission_matrix, emission_covariance, emission_offset):
         self.emission_matrix = emission_matrix
         self.emission_covariance = emission_covariance
         self.emission_offset = emission_offset
 
-    def __call__(self, latents=None, time=None):
+    def __call__(self, latents=None, time=None, previous_observations=None):
         return torch.distributions.Normal(
             loc=latents[-1] * self.emission_matrix +
             self.emission_offset,
             scale=np.sqrt(self.emission_covariance))
 
 
-class MyProposalDistribution:
+class Proposal:
     def __init__(self, initial_mean, initial_variance, transition_matrix,
                  transition_covariance, transition_offset):
         self.initial_mean = initial_mean
@@ -175,21 +176,21 @@ class TestInfer(unittest.TestCase):
         self.observations_tensor = torch.from_numpy(self.observations).\
             unsqueeze(-1).float()
 
-        self.my_initial_distribution = MyInitialDistribution(
+        self.my_initial_distribution = Initial(
             initial_mean=float(kf.initial_state_mean[0]),
             initial_variance=float(kf.initial_state_covariance[0][0])
         )
-        self.my_transition_distribution = MyTransitionDistribution(
+        self.my_transition_distribution = Transition(
             transition_matrix=float(kf.transition_matrices[0][0]),
             transition_covariance=float(kf.transition_covariance[0][0]),
             transition_offset=float(kf.transition_offsets[0])
         )
-        self.my_emission_distribution = MyEmissionDistribution(
+        self.my_emission_distribution = Emission(
             emission_matrix=float(kf.observation_matrices[0][0]),
             emission_covariance=float(kf.observation_covariance[0][0]),
             emission_offset=float(kf.observation_offsets[0])
         )
-        self.my_proposal_distribution = MyProposalDistribution(
+        self.my_proposal_distribution = Proposal(
             initial_mean=float(kf.initial_state_mean[0]),
             initial_variance=float(kf.initial_state_covariance[0][0]),
             transition_matrix=float(kf.transition_matrices[0][0]),

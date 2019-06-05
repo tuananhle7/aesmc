@@ -22,7 +22,8 @@ class Transition(nn.Module):
         self.mult = nn.Parameter(torch.Tensor([init_mult]).squeeze())
         self.scale = scale
 
-    def forward(self, previous_latents=None, time=None):
+    def forward(self, previous_latents=None, time=None,
+                previous_observations=None):
         return aesmc.state.set_batch_shape_mode(
             torch.distributions.Normal(
                 self.mult * previous_latents[-1], self.scale),
@@ -35,7 +36,7 @@ class Emission(nn.Module):
         self.mult = nn.Parameter(torch.Tensor([init_mult]).squeeze())
         self.scale = scale
 
-    def forward(self, latents=None, time=None):
+    def forward(self, latents=None, time=None, previous_observations=None):
         return aesmc.state.set_batch_shape_mode(
             torch.distributions.Normal(self.mult * latents[-1], self.scale),
             aesmc.state.BatchShapeMode.FULLY_EXPANDED)

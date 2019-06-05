@@ -18,21 +18,25 @@ def get_loss(observations, num_particles, algorithm, initial, transition,
             Args:
                 previous_latents: list of length time where each element is a
                     tensor [batch_size, num_particles, ...]
-                time: int
+                time: int (zero-indexed)
+                previous_observations: list of length time where each element
+                    is a tensor [batch_size, ...] or a dict thereof
             Returns: torch.distributions.Distribution or a dict thereof
         emission: a callable object (function or nn.Module) with signature:
             Args:
                 latents: list of length (time + 1) where each element is a
                     tensor [batch_size, num_particles, ...]
-                time: int
+                time: int (zero-indexed)
+                previous_observations: list of length time where each element
+                    is a tensor [batch_size, ...] or a dict thereof
             Returns: torch.distributions.Distribution or a dict thereof
         proposal: a callable object (function or nn.Module) with signature:
             Args:
                 previous_latents: list of length time where each element is a
                     tensor [batch_size, num_particles, ...]
-                time: int
-                observations: list where each element is a tensor
-                    [batch_size, ...] or a dict thereof
+                time: int (zero-indexed)
+                observations: list of length num_timesteps where each element
+                    is a tensor [batch_size, ...] or a dict thereof
             Returns: torch.distributions.Distribution or a dict thereof
 
     Returns:

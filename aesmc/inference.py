@@ -15,8 +15,8 @@ def infer(inference_algorithm, observations, initial, transition, emission,
 
     Args:
         inference_algorithm: is or smc (string)
-        observations: list of tensors [batch_size, dim1, ..., dimN] or
-            dicts thereof
+        observations: list of tensors [batch_size, ...] or
+            dicts thereof of length num_timesteps
         initial: a callable object (function or nn.Module) which has no
             arguments and returns a torch.distributions.Distribution or a dict
             thereof
@@ -24,21 +24,25 @@ def infer(inference_algorithm, observations, initial, transition, emission,
             Args:
                 previous_latents: list of length time where each element is a
                     tensor [batch_size, num_particles, ...]
-                time: int
+                time: int (zero-indexed)
+                previous_observations: list of length time where each element
+                    is a tensor [batch_size, ...] or a dict thereof
             Returns: torch.distributions.Distribution or a dict thereof
         emission: a callable object (function or nn.Module) with signature:
             Args:
                 latents: list of length (time + 1) where each element is a
                     tensor [batch_size, num_particles, ...]
-                time: int
+                time: int (zero-indexed)
+                previous_observations: list of length time where each element
+                    is a tensor [batch_size, ...] or a dict thereof
             Returns: torch.distributions.Distribution or a dict thereof
         proposal: a callable object (function or nn.Module) with signature:
             Args:
                 previous_latents: list of length time where each element is a
                     tensor [batch_size, num_particles, ...]
-                time: int
-                observations: list where each element is a tensor
-                    [batch_size, ...] or a dict thereof
+                time: int (zero-indexed)
+                observations: list of length num_timesteps where each element
+                    is a tensor [batch_size, ...] or a dict thereof
             Returns: torch.distributions.Distribution or a dict thereof
         num_particles: int; number of particles
         return_log_marginal_likelihood: bool (default: False)
@@ -107,10 +111,12 @@ def infer(inference_algorithm, observations, initial, transition, emission,
         latents_bar += [latent]
         proposal_log_prob = state.log_prob(proposal_dist, latent)
         transition_log_prob = state.log_prob(
-            transition(previous_latents=previous_latents_bar, time=time),
+            transition(previous_latents=previous_latents_bar, time=time,
+                       previous_observations=observations[:time]),
             latent)
         emission_log_prob = state.log_prob(
-            emission(latents=latents_bar, time=time),
+            emission(latents=latents_bar, time=time,
+                     previous_observations=observations[:time]),
             state.expand_observation(observations[time], num_particles))
 
         if return_original_latents or return_latents:

@@ -117,22 +117,25 @@ def sample_from_prior(initial, transition, emission, num_timesteps,
             Args:
                 previous_latents: list of length time where each element is a
                     tensor [batch_size, num_particles, ...]
-                time: int
+                time: int (zero-indexed)
+                previous_observations: list of length time where each element
+                    is a tensor [batch_size, ...] or a dict thereof
             Returns: torch.distributions.Distribution or a dict thereof
         emission: a callable object (function or nn.Module) with signature:
             Args:
                 latents: list of length (time + 1) where each element is a
                     tensor [batch_size, num_particles, ...]
-                time: int
+                time: int (zero-indexed)
+                previous_observations: list of length time where each element
+                    is a tensor [batch_size, ...] or a dict thereof
             Returns: torch.distributions.Distribution or a dict thereof
         num_timesteps: int
         batch_size: int
 
     Returns:
-        latents: list of tensors (or dict thereof)
-            [batch_size] of length len(observations)
-        observations: list of tensors [batch_size, dim1, ..., dimN] or
-            dicts thereof
+        latents: list of tensors (or dict thereof) [batch_size] of length
+            len(observations)
+        observations: list of tensors [batch_size, ...] or dicts thereof
     """
 
     latents = []
@@ -143,9 +146,11 @@ def sample_from_prior(initial, transition, emission, num_timesteps,
             latents.append(state.sample(initial(), batch_size, 1))
         else:
             latents.append(state.sample(transition(
-                previous_latents=latents, time=time), batch_size, 1))
+                previous_latents=latents, time=time,
+                previous_observations=observations[:time]), batch_size, 1))
         observations.append(state.sample(emission(
-            latents=latents, time=time), batch_size, 1))
+            latents=latents, time=time,
+            previous_observations=observations[:time]), batch_size, 1))
 
     def squeeze_num_particles(value):
         if isinstance(value, dict):
