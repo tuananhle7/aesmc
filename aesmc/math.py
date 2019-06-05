@@ -6,10 +6,10 @@ import torch
 def lognormexp(values, dim=0):
     """Exponentiates, normalizes and takes log of a torch.Tensor/np.ndarray.
 
-    input:
+    Args:
         values: torch.Tensor/np.ndarray [dim_1, ..., dim_N]
         dim: n
-    output:
+    Returns:
         result: torch.Tensor/np.ndarray [dim_1, ..., dim_N]
             where result[i_1, ..., i_N] =
 
@@ -33,10 +33,10 @@ def lognormexp(values, dim=0):
 def exponentiate_and_normalize(values, dim=0):
     """Exponentiates and normalizes a torch.Tensor/np.ndarray.
 
-    input:
+    Args:
         values: torch.Tensor/np.ndarray [dim_1, ..., dim_N]
         dim: n
-    output:
+    Returns:
         result: torch.Tensor/np.ndarray [dim_1, ..., dim_N]
             where result[i_1, ..., i_N] =
 
